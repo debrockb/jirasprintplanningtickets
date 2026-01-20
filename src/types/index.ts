@@ -27,6 +27,13 @@ export interface ColorRule {
   textColor: string
 }
 
+export interface CardBackgroundRule {
+  field: string
+  operator: 'equals' | 'contains' | 'notEmpty' | 'empty'
+  value: string
+  backgroundColor: string
+}
+
 export interface FieldStyle {
   fieldId: string
   fontSize: number
@@ -65,6 +72,7 @@ export interface CardTemplate {
   fieldMappings: FieldMapping[]
   fieldLayouts: FieldLayout[]
   fieldStyles: FieldStyle[]
+  cardBackgroundRules?: CardBackgroundRule[]
 }
 
 export interface SavedEnrichment {

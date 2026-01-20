@@ -64,13 +64,8 @@ body {
   cursor: se-resize;
 }
 
-/* Print styles for half-A4 cards */
+/* Print styles */
 @media print {
-  @page {
-    size: A4 landscape;
-    margin: 0;
-  }
-
   html, body {
     margin: 0 !important;
     padding: 0 !important;
@@ -83,15 +78,11 @@ body {
     display: none !important;
   }
 
-  .space-y-8 > * + * {
+  .space-y-4 > * + * {
     margin-top: 0 !important;
   }
 
   .print-card {
-    width: 297mm !important;
-    height: 210mm !important;
-    max-width: 297mm !important;
-    max-height: 210mm !important;
     page-break-after: always;
     page-break-inside: avoid;
     break-after: page;
@@ -100,8 +91,7 @@ body {
     background: white !important;
     box-shadow: none !important;
     border: none !important;
-    margin: 0 !important;
-    padding: 15mm !important;
+    margin: 0 auto !important;
     position: relative !important;
     overflow: hidden !important;
   }
@@ -111,9 +101,22 @@ body {
     break-after: auto;
   }
 
-  /* Scale the content to fit A4 landscape */
-  .print-card > div {
-    transform-origin: top left;
+  /* Half A4 - 2 cards per page (landscape) */
+  .print-container.size-half-a4 .print-card {
+    width: 297mm !important;
+    height: 148.5mm !important;
+    max-width: 297mm !important;
+    max-height: 148.5mm !important;
+    padding: 10mm !important;
+  }
+
+  /* Full A4 - 1 card per page (portrait) */
+  .print-container.size-a4 .print-card {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-width: 210mm !important;
+    max-height: 297mm !important;
+    padding: 15mm !important;
   }
 }
 

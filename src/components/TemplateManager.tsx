@@ -26,16 +26,18 @@ export function TemplateManager() {
   const fieldLayouts = useDataStore(state => state.fieldLayouts)
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const columns = useDataStore(state => state.columns)
+  const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
   const setFieldMappings = useDataStore(state => state.setFieldMappings)
   const setFieldLayouts = useDataStore(state => state.setFieldLayouts)
   const setFieldStyles = useDataStore(state => state.setFieldStyles)
+  const setCardBackgroundRules = useDataStore(state => state.setCardBackgroundRules)
 
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
   const setEnrichmentGroup = useDataStore(state => state.setEnrichmentGroup)
 
   const handleSaveTemplate = () => {
     if (!templateName.trim()) return
-    saveTemplate(templateName.trim(), fieldMappings, fieldLayouts, fieldStyles)
+    saveTemplate(templateName.trim(), fieldMappings, fieldLayouts, fieldStyles, cardBackgroundRules)
     setTemplateName('')
   }
 
@@ -140,6 +142,14 @@ export function TemplateManager() {
     setFieldMappings(newMappings)
     setFieldLayouts(newLayouts)
     setFieldStyles(newStyles)
+
+    // Load card background rules, updating field names based on column mapping
+    const updatedCardBgRules = (template.cardBackgroundRules || []).map(rule => ({
+      ...rule,
+      field: columnMap.get(rule.field) || rule.field
+    }))
+    setCardBackgroundRules(updatedCardBgRules)
+
     setShowModal(false)
   }
 

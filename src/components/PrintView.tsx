@@ -1,19 +1,27 @@
+import { useState } from 'react'
 import { useDataStore } from '../stores/dataStore'
-import { ColorRule, TicketRow } from '../types'
+import { ColorRule, TicketRow, CardBackgroundRule } from '../types'
 
 const GRID_COLS = 12
-const GRID_ROW_HEIGHT = 25
-const CARD_WIDTH = 794
-const CARD_HEIGHT = 561
 const PADDING = 10
 
+// A4 at 96 DPI: 794 x 1123 px, Half A4: 794 x 561 px
+const SIZES = {
+  'half-a4': { width: 794, height: 561, rowHeight: 25, label: 'Half A4 (2 per page)' },
+  'a4': { width: 794, height: 1123, rowHeight: 50, label: 'Full A4 (1 per page)' }
+}
+
+type PrintSize = keyof typeof SIZES
+
 export function PrintView() {
+  const [printSize, setPrintSize] = useState<PrintSize>('half-a4')
   const rows = useDataStore(state => state.rows)
   const fieldMappings = useDataStore(state => state.fieldMappings)
   const fieldLayouts = useDataStore(state => state.fieldLayouts)
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const getEnrichedRow = useDataStore(state => state.getEnrichedRow)
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
+  const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
 
   const getFieldStyle = (fieldId: string) => {
     return fieldStyles.find(s => s.fieldId === fieldId) || {
@@ -64,10 +72,40 @@ export function PrintView() {
     return { backgroundColor: '', textColor: '' }
   }
 
+  const evaluateCardBackground = (row: TicketRow | null): string => {
+    if (!row || !cardBackgroundRules.length) return 'white'
+
+    for (const rule of cardBackgroundRules) {
+      const fieldValue = String(row[rule.field] || '')
+
+      let matches = false
+      switch (rule.operator) {
+        case 'equals':
+          matches = fieldValue.toLowerCase() === rule.value.toLowerCase()
+          break
+        case 'contains':
+          matches = fieldValue.toLowerCase().includes(rule.value.toLowerCase())
+          break
+        case 'notEmpty':
+          matches = fieldValue.trim() !== ''
+          break
+        case 'empty':
+          matches = fieldValue.trim() === ''
+          break
+      }
+
+      if (matches) {
+        return rule.backgroundColor
+      }
+    }
+    return 'white'
+  }
+
   const handlePrint = () => {
     window.print()
   }
 
+  const { width: CARD_WIDTH, height: CARD_HEIGHT, rowHeight: GRID_ROW_HEIGHT } = SIZES[printSize]
   const colWidth = (CARD_WIDTH - PADDING * 2) / GRID_COLS
 
   const getAllLayouts = (enrichedRow: Record<string, unknown>) => {
@@ -104,29 +142,43 @@ export function PrintView() {
   }
 
   return (
-    <div>
-      <button
-        onClick={handlePrint}
-        className="no-print fixed bottom-6 right-6 px-6 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 z-50"
-      >
-        Print All Cards ({rows.length})
-      </button>
+    <div className={`print-container size-${printSize}`}>
+      {/* Print controls */}
+      <div className="no-print fixed bottom-6 right-6 flex flex-col gap-2 z-50">
+        <select
+          value={printSize}
+          onChange={(e) => setPrintSize(e.target.value as PrintSize)}
+          className="px-3 py-2 bg-white border rounded-lg shadow-lg text-sm"
+        >
+          {Object.entries(SIZES).map(([key, { label }]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+        <button
+          onClick={handlePrint}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700"
+        >
+          Print All Cards ({rows.length})
+        </button>
+      </div>
 
       <div className="space-y-4">
         {rows.map((row, index) => {
           const enrichedRow = getEnrichedRow(row)
           const allLayouts = getAllLayouts(enrichedRow)
+          const cardBgColor = evaluateCardBackground(enrichedRow as TicketRow)
 
           return (
             <div
               key={index}
-              className="print-card bg-white mx-auto shadow border border-gray-200"
+              className="print-card mx-auto shadow border border-gray-200"
               style={{
                 width: CARD_WIDTH,
                 minHeight: CARD_HEIGHT,
                 position: 'relative',
                 padding: PADDING,
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                backgroundColor: cardBgColor
               }}
             >
               <div className="no-print absolute top-1 right-2 text-xs text-gray-400">

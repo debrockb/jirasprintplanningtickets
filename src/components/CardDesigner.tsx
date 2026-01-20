@@ -3,7 +3,7 @@ import GridLayout, { Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useDataStore } from '../stores/dataStore'
-import { FieldLayout, ColorRule, TicketRow } from '../types'
+import { FieldLayout, ColorRule, TicketRow, CardBackgroundRule } from '../types'
 
 const GRID_COLS = 12
 const GRID_ROW_HEIGHT = 25
@@ -23,6 +23,7 @@ export function CardDesigner() {
   const getEnrichedRow = useDataStore(state => state.getEnrichedRow)
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
   const columns = useDataStore(state => state.columns)
+  const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
 
   const [editingRules, setEditingRules] = useState<string | null>(null)
 
@@ -128,6 +129,37 @@ export function CardDesigner() {
     }
     return { backgroundColor: '', textColor: '' }
   }
+
+  const evaluateCardBackground = (row: TicketRow | null): string => {
+    if (!row || !cardBackgroundRules.length) return 'white'
+
+    for (const rule of cardBackgroundRules) {
+      const fieldValue = String(row[rule.field] || '')
+
+      let matches = false
+      switch (rule.operator) {
+        case 'equals':
+          matches = fieldValue.toLowerCase() === rule.value.toLowerCase()
+          break
+        case 'contains':
+          matches = fieldValue.toLowerCase().includes(rule.value.toLowerCase())
+          break
+        case 'notEmpty':
+          matches = fieldValue.trim() !== ''
+          break
+        case 'empty':
+          matches = fieldValue.trim() === ''
+          break
+      }
+
+      if (matches) {
+        return rule.backgroundColor
+      }
+    }
+    return 'white'
+  }
+
+  const cardBackground = evaluateCardBackground(currentRow)
 
   const addColorRule = (fieldId: string) => {
     const style = getFieldStyle(fieldId)
@@ -240,12 +272,13 @@ export function CardDesigner() {
       <div className="flex-1 overflow-auto">
         <div className="flex justify-center pb-4">
           <div
-            className="bg-white border border-gray-300 shadow-sm"
+            className="border border-gray-300 shadow-sm"
             style={{
               width: CARD_WIDTH,
               minHeight: CARD_HEIGHT,
               padding: PADDING,
-              position: 'relative'
+              position: 'relative',
+              backgroundColor: cardBackground
             }}
           >
             <GridLayout
@@ -270,13 +303,13 @@ export function CardDesigner() {
                 return (
                   <div
                     key={layout.i}
-                    className={`overflow-hidden group ${style.showBorder ? 'border border-gray-300 rounded' : ''}`}
+                    className={`relative group ${style.showBorder ? 'border border-gray-300 rounded' : ''}`}
                     style={{
                       backgroundColor: colors.backgroundColor || (style.showBorder ? '#fafafa' : 'transparent'),
                       color: colors.textColor || 'inherit'
                     }}
                   >
-                    <div className="drag-handle cursor-move h-full flex flex-col p-1">
+                    <div className="drag-handle cursor-move h-full flex flex-col p-1 overflow-hidden">
                       {style.showLabel && (
                         <div
                           className="text-[10px] mb-0.5 truncate"

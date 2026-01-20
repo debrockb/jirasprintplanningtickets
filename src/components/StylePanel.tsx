@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { useDataStore } from '../stores/dataStore'
-import { ColorRule } from '../types'
+import { ColorRule, CardBackgroundRule } from '../types'
 
 export function StylePanel() {
   const columns = useDataStore(state => state.columns)
   const fieldMappings = useDataStore(state => state.fieldMappings)
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const updateFieldStyle = useDataStore(state => state.updateFieldStyle)
+  const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
+  const setCardBackgroundRules = useDataStore(state => state.setCardBackgroundRules)
 
   const [selectedField, setSelectedField] = useState<string | null>(null)
+  const [showCardBg, setShowCardBg] = useState(true)
 
   const enabledFields = fieldMappings.filter(m => m.enabled)
 
@@ -51,6 +54,27 @@ export function StylePanel() {
     updateFieldStyle(fieldId, { colorRules: newRules })
   }
 
+  // Card background rule helpers
+  const addCardBgRule = () => {
+    const newRule: CardBackgroundRule = {
+      field: columns[0] || '',
+      operator: 'equals',
+      value: '',
+      backgroundColor: '#fef3c7'
+    }
+    setCardBackgroundRules([...cardBackgroundRules, newRule])
+  }
+
+  const updateCardBgRule = (index: number, updates: Partial<CardBackgroundRule>) => {
+    const newRules = [...cardBackgroundRules]
+    newRules[index] = { ...newRules[index], ...updates }
+    setCardBackgroundRules(newRules)
+  }
+
+  const removeCardBgRule = (index: number) => {
+    setCardBackgroundRules(cardBackgroundRules.filter((_, i) => i !== index))
+  }
+
   if (enabledFields.length === 0) {
     return null
   }
@@ -59,6 +83,104 @@ export function StylePanel() {
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
+      {/* Card Background Section */}
+      <div className="mb-4">
+        <div
+          className="flex items-center justify-between cursor-pointer"
+          onClick={() => setShowCardBg(!showCardBg)}
+        >
+          <h3 className="font-semibold text-gray-700">Card Background</h3>
+          <span className="text-gray-400">{showCardBg ? '▼' : '▶'}</span>
+        </div>
+
+        {showCardBg && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-500 mb-2">
+              Set card background color based on field values (e.g., category)
+            </p>
+
+            {cardBackgroundRules.length === 0 ? (
+              <p className="text-xs text-gray-400 italic mb-2">
+                No rules. Cards use white background.
+              </p>
+            ) : (
+              <div className="space-y-2 mb-2">
+                {cardBackgroundRules.map((rule, idx) => (
+                  <div key={idx} className="p-2 bg-gray-50 rounded text-xs border">
+                    <div className="flex gap-1 mb-1">
+                      <span className="text-gray-500">If</span>
+                      <select
+                        value={rule.field}
+                        onChange={(e) => updateCardBgRule(idx, { field: e.target.value })}
+                        className="flex-1 border rounded px-1 py-0.5 text-xs"
+                      >
+                        {columns.map(col => (
+                          <option key={col} value={col}>{col}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex gap-1 mb-1">
+                      <select
+                        value={rule.operator}
+                        onChange={(e) => updateCardBgRule(idx, { operator: e.target.value as CardBackgroundRule['operator'] })}
+                        className="border rounded px-1 py-0.5 text-xs"
+                      >
+                        <option value="equals">equals</option>
+                        <option value="contains">contains</option>
+                        <option value="notEmpty">is not empty</option>
+                        <option value="empty">is empty</option>
+                      </select>
+
+                      {(rule.operator === 'equals' || rule.operator === 'contains') && (
+                        <input
+                          type="text"
+                          value={rule.value}
+                          onChange={(e) => updateCardBgRule(idx, { value: e.target.value })}
+                          placeholder="Value..."
+                          className="flex-1 border rounded px-1 py-0.5 text-xs"
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500">Color:</span>
+                        <input
+                          type="color"
+                          value={rule.backgroundColor}
+                          onChange={(e) => updateCardBgRule(idx, { backgroundColor: e.target.value })}
+                          className="w-6 h-6 border rounded cursor-pointer"
+                        />
+                      </div>
+                      <div
+                        className="flex-1 h-4 rounded"
+                        style={{ backgroundColor: rule.backgroundColor }}
+                      />
+                      <button
+                        onClick={() => removeCardBgRule(idx)}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={addCardBgRule}
+              className="text-xs text-blue-600 hover:text-blue-700"
+            >
+              + Add Card Background Rule
+            </button>
+          </div>
+        )}
+      </div>
+
+      <hr className="my-3" />
+
       <h3 className="font-semibold text-gray-700 mb-3">Field Styles & Colors</h3>
 
       {/* Field selector */}

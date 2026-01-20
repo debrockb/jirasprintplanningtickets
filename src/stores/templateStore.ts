@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { CardTemplate, SavedEnrichment, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup } from '../types'
+import { CardTemplate, SavedEnrichment, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup, CardBackgroundRule } from '../types'
 
 interface TemplateStore {
   // Templates
   templates: CardTemplate[]
-  saveTemplate: (name: string, mappings: FieldMapping[], layouts: FieldLayout[], styles: FieldStyle[]) => string
+  saveTemplate: (name: string, mappings: FieldMapping[], layouts: FieldLayout[], styles: FieldStyle[], cardBgRules?: CardBackgroundRule[]) => string
   loadTemplate: (id: string) => CardTemplate | null
   deleteTemplate: (id: string) => void
   renameTemplate: (id: string, name: string) => void
@@ -30,7 +30,7 @@ export const useTemplateStore = create<TemplateStore>()(
     (set, get) => ({
       templates: [],
 
-      saveTemplate: (name, mappings, layouts, styles) => {
+      saveTemplate: (name, mappings, layouts, styles, cardBgRules = []) => {
         const id = generateId()
         const template: CardTemplate = {
           id,
@@ -38,7 +38,8 @@ export const useTemplateStore = create<TemplateStore>()(
           createdAt: Date.now(),
           fieldMappings: mappings,
           fieldLayouts: layouts,
-          fieldStyles: styles
+          fieldStyles: styles,
+          cardBackgroundRules: cardBgRules
         }
         set(state => ({
           templates: [...state.templates, template]

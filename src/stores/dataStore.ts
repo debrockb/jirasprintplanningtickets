@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { TicketRow, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup } from '../types'
+import { TicketRow, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup, CardBackgroundRule } from '../types'
 
 interface DataStore {
   // Data
@@ -21,6 +21,10 @@ interface DataStore {
   fieldStyles: FieldStyle[]
   setFieldStyles: (styles: FieldStyle[]) => void
   updateFieldStyle: (fieldId: string, updates: Partial<FieldStyle>) => void
+
+  // Card background rules
+  cardBackgroundRules: CardBackgroundRule[]
+  setCardBackgroundRules: (rules: CardBackgroundRule[]) => void
 
   // Enrichment
   enrichmentGroup: EnrichmentGroup | null
@@ -90,6 +94,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
       s.fieldId === fieldId ? { ...s, ...updates } : s
     )
   })),
+
+  cardBackgroundRules: [],
+  setCardBackgroundRules: (rules) => set({ cardBackgroundRules: rules }),
 
   enrichmentGroup: null,
   setEnrichmentGroup: (group) => set({ enrichmentGroup: group }),
