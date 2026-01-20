@@ -66,7 +66,7 @@ export function FileUpload() {
       >
         <input
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept=".xlsx,.xls,.xlsm,.csv"
           onChange={handleInputChange}
           className="hidden"
           id="file-input"
@@ -80,7 +80,7 @@ export function FileUpload() {
             or click to browse
           </p>
           <p className="text-xs text-gray-400 mt-4">
-            Supported formats: .xlsx, .xls, .csv
+            Supported formats: .xlsx, .xlsm, .xls, .csv
           </p>
         </label>
       </div>
