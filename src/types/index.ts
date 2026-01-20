@@ -6,6 +6,7 @@ export interface FieldMapping {
   columnName: string
   displayName: string
   enabled: boolean
+  columnIndex: number  // Position in the original Excel file
 }
 
 export interface FieldLayout {

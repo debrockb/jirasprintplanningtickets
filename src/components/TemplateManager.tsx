@@ -25,6 +25,7 @@ export function TemplateManager() {
   const fieldMappings = useDataStore(state => state.fieldMappings)
   const fieldLayouts = useDataStore(state => state.fieldLayouts)
   const fieldStyles = useDataStore(state => state.fieldStyles)
+  const columns = useDataStore(state => state.columns)
   const setFieldMappings = useDataStore(state => state.setFieldMappings)
   const setFieldLayouts = useDataStore(state => state.setFieldLayouts)
   const setFieldStyles = useDataStore(state => state.setFieldStyles)
@@ -40,12 +41,106 @@ export function TemplateManager() {
 
   const handleLoadTemplate = (id: string) => {
     const template = loadTemplate(id)
-    if (template) {
-      setFieldMappings(template.fieldMappings)
-      setFieldLayouts(template.fieldLayouts)
-      setFieldStyles(template.fieldStyles)
-      setShowModal(false)
+    if (!template) return
+
+    // Smart column mapping: adapt template to current Excel columns
+    // Build a map from old column names to new column names
+    const columnMap = new Map<string, string>()
+    const usedCurrentColumns = new Set<string>()
+
+    // First pass: match by exact column name
+    for (const oldMapping of template.fieldMappings) {
+      if (columns.includes(oldMapping.columnName)) {
+        columnMap.set(oldMapping.columnName, oldMapping.columnName)
+        usedCurrentColumns.add(oldMapping.columnName)
+      }
     }
+
+    // Second pass: match by column index for columns that weren't matched by name
+    for (const oldMapping of template.fieldMappings) {
+      if (!columnMap.has(oldMapping.columnName)) {
+        const columnIndex = oldMapping.columnIndex ?? -1
+        if (columnIndex >= 0 && columnIndex < columns.length) {
+          const newColumnName = columns[columnIndex]
+          if (!usedCurrentColumns.has(newColumnName)) {
+            columnMap.set(oldMapping.columnName, newColumnName)
+            usedCurrentColumns.add(newColumnName)
+          }
+        }
+      }
+    }
+
+    // Transform field mappings
+    const newMappings = columns.map((col, index) => {
+      // Find if this column was in the template (by name or mapped from index)
+      const oldColumnName = Array.from(columnMap.entries()).find(([_, newName]) => newName === col)?.[0]
+      const oldMapping = oldColumnName ? template.fieldMappings.find(m => m.columnName === oldColumnName) : null
+
+      if (oldMapping) {
+        return {
+          columnName: col,
+          displayName: oldMapping.displayName !== oldMapping.columnName ? oldMapping.displayName : col,
+          enabled: oldMapping.enabled,
+          columnIndex: index
+        }
+      } else {
+        // New column not in template - add as disabled
+        return {
+          columnName: col,
+          displayName: col,
+          enabled: false,
+          columnIndex: index
+        }
+      }
+    })
+
+    // Transform field layouts
+    const newLayouts = template.fieldLayouts
+      .map(layout => {
+        const newColumnName = columnMap.get(layout.i)
+        if (newColumnName) {
+          return { ...layout, i: newColumnName }
+        }
+        return null
+      })
+      .filter((l): l is NonNullable<typeof l> => l !== null)
+
+    // Transform field styles
+    const newStyles = template.fieldStyles
+      .map(style => {
+        const newColumnName = columnMap.get(style.fieldId)
+        if (newColumnName) {
+          // Also update color rules to use new column names
+          const updatedColorRules = (style.colorRules || []).map(rule => ({
+            ...rule,
+            field: columnMap.get(rule.field) || rule.field
+          }))
+          return { ...style, fieldId: newColumnName, colorRules: updatedColorRules }
+        }
+        return null
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+
+    // Add default styles for new columns not in template
+    const styledColumns = new Set(newStyles.map(s => s.fieldId))
+    for (const col of columns) {
+      if (!styledColumns.has(col)) {
+        newStyles.push({
+          fieldId: col,
+          fontSize: 14,
+          fontWeight: 'normal',
+          textAlign: 'left',
+          showLabel: true,
+          showBorder: true,
+          colorRules: []
+        })
+      }
+    }
+
+    setFieldMappings(newMappings)
+    setFieldLayouts(newLayouts)
+    setFieldStyles(newStyles)
+    setShowModal(false)
   }
 
   const handleSaveEnrichment = () => {

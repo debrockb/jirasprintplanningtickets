@@ -41,10 +41,11 @@ export const useDataStore = create<DataStore>((set, get) => ({
   rows: [],
   columns: [],
   setData: (rows, columns) => {
-    const mappings: FieldMapping[] = columns.map(col => ({
+    const mappings: FieldMapping[] = columns.map((col, index) => ({
       columnName: col,
       displayName: col,
-      enabled: true
+      enabled: true,
+      columnIndex: index
     }))
 
     const layouts: FieldLayout[] = columns.slice(0, 6).map((col, i) => ({

@@ -170,26 +170,69 @@ export function CardDesigner() {
     minH: 1
   }))
 
+  const autoArrange = () => {
+    // Sort layouts by their current position (top to bottom, left to right)
+    const sorted = [...allLayouts].sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y
+      return a.x - b.x
+    })
+
+    // Place items in a compact grid (2 columns)
+    let currentY = 0
+    let currentX = 0
+    const newLayouts: FieldLayout[] = []
+
+    for (const layout of sorted) {
+      // If this item won't fit in the current row, move to next row
+      if (currentX + layout.w > GRID_COLS) {
+        // Find the max height of items in the current row
+        const rowItems = newLayouts.filter(l => l.y === currentY)
+        const maxH = rowItems.length > 0 ? Math.max(...rowItems.map(l => l.h)) : 0
+        currentY += maxH
+        currentX = 0
+      }
+
+      newLayouts.push({
+        ...layout,
+        x: currentX,
+        y: currentY
+      })
+
+      currentX += layout.w
+    }
+
+    setFieldLayouts(newLayouts)
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Navigation */}
       <div className="flex items-center justify-between mb-2 px-2 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))}
+            disabled={previewIndex === 0}
+            className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300"
+          >
+            Prev
+          </button>
+          <span className="text-sm text-gray-600">
+            {previewIndex + 1} / {rows.length}
+          </span>
+          <button
+            onClick={() => setPreviewIndex(Math.min(rows.length - 1, previewIndex + 1))}
+            disabled={previewIndex === rows.length - 1}
+            className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300"
+          >
+            Next
+          </button>
+        </div>
         <button
-          onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))}
-          disabled={previewIndex === 0}
-          className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300"
+          onClick={autoArrange}
+          className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
+          title="Automatically arrange all fields to fill gaps"
         >
-          Prev
-        </button>
-        <span className="text-sm text-gray-600">
-          {previewIndex + 1} / {rows.length}
-        </span>
-        <button
-          onClick={() => setPreviewIndex(Math.min(rows.length - 1, previewIndex + 1))}
-          disabled={previewIndex === rows.length - 1}
-          className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300"
-        >
-          Next
+          Auto Arrange
         </button>
       </div>
 
