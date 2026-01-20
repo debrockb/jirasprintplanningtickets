@@ -1,14 +1,15 @@
-import React, { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import GridLayout, { Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useDataStore } from '../stores/dataStore'
-import { FieldLayout } from '../types'
+import { FieldLayout, ColorRule, TicketRow } from '../types'
 
 const GRID_COLS = 12
-const GRID_ROW_HEIGHT = 30
-const CARD_WIDTH = 794  // 210mm at 96dpi
-const CARD_HEIGHT = 561 // 148.5mm at 96dpi
+const GRID_ROW_HEIGHT = 25
+const CARD_WIDTH = 794
+const CARD_HEIGHT = 561
+const PADDING = 10
 
 export function CardDesigner() {
   const rows = useDataStore(state => state.rows)
@@ -21,18 +22,15 @@ export function CardDesigner() {
   const setPreviewIndex = useDataStore(state => state.setPreviewIndex)
   const getEnrichedRow = useDataStore(state => state.getEnrichedRow)
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
+  const columns = useDataStore(state => state.columns)
 
-  const enabledMappings = useMemo(() =>
-    fieldMappings.filter(m => m.enabled),
-    [fieldMappings]
-  )
+  const [editingRules, setEditingRules] = useState<string | null>(null)
 
   const currentRow = useMemo(() => {
     if (rows.length === 0) return null
     return getEnrichedRow(rows[previewIndex])
   }, [rows, previewIndex, getEnrichedRow])
 
-  // Add enrichment custom fields to layouts if they exist
   const allLayouts = useMemo(() => {
     if (!enrichmentGroup || !currentRow) return fieldLayouts
 
@@ -67,8 +65,8 @@ export function CardDesigner() {
       y: l.y,
       w: l.w,
       h: l.h,
-      minW: l.minW,
-      minH: l.minH
+      minW: 2,
+      minH: 1
     }))
     setFieldLayouts(converted)
   }
@@ -76,10 +74,12 @@ export function CardDesigner() {
   const getFieldStyle = (fieldId: string) => {
     return fieldStyles.find(s => s.fieldId === fieldId) || {
       fieldId,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: 'normal' as const,
       textAlign: 'left' as const,
-      showLabel: true
+      showLabel: true,
+      showBorder: true,
+      colorRules: []
     }
   }
 
@@ -100,6 +100,62 @@ export function CardDesigner() {
     return currentRow[fieldId] || ''
   }
 
+  const evaluateColorRules = (rules: ColorRule[], row: TicketRow | null) => {
+    if (!row || !rules.length) return { backgroundColor: '', textColor: '' }
+
+    for (const rule of rules) {
+      const fieldValue = String(row[rule.field] || '')
+
+      let matches = false
+      switch (rule.operator) {
+        case 'equals':
+          matches = fieldValue.toLowerCase() === rule.value.toLowerCase()
+          break
+        case 'contains':
+          matches = fieldValue.toLowerCase().includes(rule.value.toLowerCase())
+          break
+        case 'notEmpty':
+          matches = fieldValue.trim() !== ''
+          break
+        case 'empty':
+          matches = fieldValue.trim() === ''
+          break
+      }
+
+      if (matches) {
+        return { backgroundColor: rule.backgroundColor, textColor: rule.textColor }
+      }
+    }
+    return { backgroundColor: '', textColor: '' }
+  }
+
+  const addColorRule = (fieldId: string) => {
+    const style = getFieldStyle(fieldId)
+    const newRule: ColorRule = {
+      field: columns[0] || '',
+      operator: 'equals',
+      value: '',
+      backgroundColor: '#dcfce7',
+      textColor: '#166534'
+    }
+    updateFieldStyle(fieldId, {
+      colorRules: [...(style.colorRules || []), newRule]
+    })
+  }
+
+  const updateColorRule = (fieldId: string, index: number, updates: Partial<ColorRule>) => {
+    const style = getFieldStyle(fieldId)
+    const newRules = [...(style.colorRules || [])]
+    newRules[index] = { ...newRules[index], ...updates }
+    updateFieldStyle(fieldId, { colorRules: newRules })
+  }
+
+  const removeColorRule = (fieldId: string, index: number) => {
+    const style = getFieldStyle(fieldId)
+    const newRules = (style.colorRules || []).filter((_, i) => i !== index)
+    updateFieldStyle(fieldId, { colorRules: newRules })
+  }
+
   if (rows.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-100 rounded-lg">
@@ -110,115 +166,229 @@ export function CardDesigner() {
 
   const gridLayouts: Layout[] = allLayouts.map(l => ({
     ...l,
-    minW: l.minW || 2,
-    minH: l.minH || 1
+    minW: 2,
+    minH: 1
   }))
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Navigation */}
-      <div className="flex items-center justify-between mb-4 px-2">
+      <div className="flex items-center justify-between mb-2 px-2 flex-shrink-0">
         <button
           onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))}
           disabled={previewIndex === 0}
-          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300"
+          className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300"
         >
-          Previous
+          Prev
         </button>
         <span className="text-sm text-gray-600">
-          Card {previewIndex + 1} of {rows.length}
+          {previewIndex + 1} / {rows.length}
         </span>
         <button
           onClick={() => setPreviewIndex(Math.min(rows.length - 1, previewIndex + 1))}
           disabled={previewIndex === rows.length - 1}
-          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300"
+          className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300"
         >
           Next
         </button>
       </div>
 
-      {/* Card Canvas */}
-      <div className="flex-1 overflow-auto flex justify-center">
-        <div
-          className="card-preview bg-white border border-gray-200"
-          style={{ width: CARD_WIDTH, height: CARD_HEIGHT, padding: 20 }}
-        >
-          <GridLayout
-            className="layout"
-            layout={gridLayouts}
-            cols={GRID_COLS}
-            rowHeight={GRID_ROW_HEIGHT}
-            width={CARD_WIDTH - 40}
-            onLayoutChange={handleLayoutChange}
-            draggableHandle=".drag-handle"
-            compactType={null}
-            preventCollision={false}
+      {/* Card Canvas - scrollable */}
+      <div className="flex-1 overflow-auto">
+        <div className="flex justify-center pb-4">
+          <div
+            className="bg-white border border-gray-300 shadow-sm"
+            style={{
+              width: CARD_WIDTH,
+              minHeight: CARD_HEIGHT,
+              padding: PADDING,
+              position: 'relative'
+            }}
           >
-            {allLayouts.map(layout => {
-              const style = getFieldStyle(layout.i)
-              const displayName = getDisplayName(layout.i)
-              const value = getFieldValue(layout.i)
+            <GridLayout
+              className="layout"
+              layout={gridLayouts}
+              cols={GRID_COLS}
+              rowHeight={GRID_ROW_HEIGHT}
+              width={CARD_WIDTH - PADDING * 2}
+              onLayoutChange={handleLayoutChange}
+              draggableHandle=".drag-handle"
+              compactType={null}
+              preventCollision={false}
+              isResizable={true}
+              resizeHandles={['se']}
+            >
+              {allLayouts.map(layout => {
+                const style = getFieldStyle(layout.i)
+                const displayName = getDisplayName(layout.i)
+                const value = getFieldValue(layout.i)
+                const colors = evaluateColorRules(style.colorRules || [], currentRow)
 
-              return (
-                <div
-                  key={layout.i}
-                  className="bg-gray-50 border border-gray-200 rounded p-2 overflow-hidden group"
-                >
-                  <div className="drag-handle cursor-move h-full flex flex-col">
-                    {style.showLabel && (
-                      <div className="text-xs text-gray-400 mb-1 truncate">
-                        {displayName}
+                return (
+                  <div
+                    key={layout.i}
+                    className={`overflow-hidden group ${style.showBorder ? 'border border-gray-300 rounded' : ''}`}
+                    style={{
+                      backgroundColor: colors.backgroundColor || (style.showBorder ? '#fafafa' : 'transparent'),
+                      color: colors.textColor || 'inherit'
+                    }}
+                  >
+                    <div className="drag-handle cursor-move h-full flex flex-col p-1">
+                      {style.showLabel && (
+                        <div
+                          className="text-[10px] mb-0.5 truncate"
+                          style={{ color: colors.textColor ? colors.textColor : '#9ca3af' }}
+                        >
+                          {displayName}
+                        </div>
+                      )}
+                      <div
+                        className="flex-1 overflow-hidden leading-tight"
+                        style={{
+                          fontSize: style.fontSize,
+                          fontWeight: style.fontWeight,
+                          textAlign: style.textAlign
+                        }}
+                      >
+                        {String(value)}
+                      </div>
+                    </div>
+
+                    {/* Style controls on hover */}
+                    <div className="absolute -top-8 right-0 opacity-0 group-hover:opacity-100 bg-white shadow-lg rounded p-1 flex gap-1 z-20 border">
+                      <button
+                        onClick={() => updateFieldStyle(layout.i, {
+                          fontWeight: style.fontWeight === 'bold' ? 'normal' : 'bold'
+                        })}
+                        className={`w-6 h-6 text-xs rounded font-bold ${style.fontWeight === 'bold' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                        title="Bold"
+                      >
+                        B
+                      </button>
+                      <button
+                        onClick={() => updateFieldStyle(layout.i, {
+                          fontSize: Math.min(20, style.fontSize + 1)
+                        })}
+                        className="w-6 h-6 text-xs rounded hover:bg-gray-100"
+                        title="Increase font"
+                      >
+                        +
+                      </button>
+                      <button
+                        onClick={() => updateFieldStyle(layout.i, {
+                          fontSize: Math.max(8, style.fontSize - 1)
+                        })}
+                        className="w-6 h-6 text-xs rounded hover:bg-gray-100"
+                        title="Decrease font"
+                      >
+                        -
+                      </button>
+                      <button
+                        onClick={() => updateFieldStyle(layout.i, { showLabel: !style.showLabel })}
+                        className={`w-6 h-6 text-xs rounded ${style.showLabel ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                        title="Toggle label"
+                      >
+                        L
+                      </button>
+                      <button
+                        onClick={() => updateFieldStyle(layout.i, { showBorder: !style.showBorder })}
+                        className={`w-6 h-6 text-xs rounded ${style.showBorder ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                        title="Toggle border"
+                      >
+                        []
+                      </button>
+                      <button
+                        onClick={() => setEditingRules(editingRules === layout.i ? null : layout.i)}
+                        className={`w-6 h-6 text-xs rounded ${(style.colorRules?.length || 0) > 0 ? 'bg-green-100 text-green-700' : 'hover:bg-gray-100'}`}
+                        title="Color rules"
+                      >
+                        C
+                      </button>
+                    </div>
+
+                    {/* Color rules editor */}
+                    {editingRules === layout.i && (
+                      <div className="absolute top-full left-0 mt-1 bg-white shadow-xl rounded-lg p-3 z-30 border w-80">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium text-sm">Color Rules</span>
+                          <button
+                            onClick={() => setEditingRules(null)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            x
+                          </button>
+                        </div>
+
+                        {(style.colorRules || []).map((rule, idx) => (
+                          <div key={idx} className="mb-2 p-2 bg-gray-50 rounded text-xs">
+                            <div className="flex gap-1 mb-1">
+                              <select
+                                value={rule.field}
+                                onChange={(e) => updateColorRule(layout.i, idx, { field: e.target.value })}
+                                className="flex-1 border rounded px-1 py-0.5"
+                              >
+                                {columns.map(col => (
+                                  <option key={col} value={col}>{col}</option>
+                                ))}
+                              </select>
+                              <select
+                                value={rule.operator}
+                                onChange={(e) => updateColorRule(layout.i, idx, { operator: e.target.value as ColorRule['operator'] })}
+                                className="border rounded px-1 py-0.5"
+                              >
+                                <option value="equals">=</option>
+                                <option value="contains">contains</option>
+                                <option value="notEmpty">not empty</option>
+                                <option value="empty">empty</option>
+                              </select>
+                            </div>
+                            {(rule.operator === 'equals' || rule.operator === 'contains') && (
+                              <input
+                                type="text"
+                                value={rule.value}
+                                onChange={(e) => updateColorRule(layout.i, idx, { value: e.target.value })}
+                                placeholder="Value..."
+                                className="w-full border rounded px-1 py-0.5 mb-1"
+                              />
+                            )}
+                            <div className="flex gap-1 items-center">
+                              <label className="text-gray-500">BG:</label>
+                              <input
+                                type="color"
+                                value={rule.backgroundColor}
+                                onChange={(e) => updateColorRule(layout.i, idx, { backgroundColor: e.target.value })}
+                                className="w-6 h-6 border rounded"
+                              />
+                              <label className="text-gray-500 ml-2">Text:</label>
+                              <input
+                                type="color"
+                                value={rule.textColor}
+                                onChange={(e) => updateColorRule(layout.i, idx, { textColor: e.target.value })}
+                                className="w-6 h-6 border rounded"
+                              />
+                              <button
+                                onClick={() => removeColorRule(layout.i, idx)}
+                                className="ml-auto text-red-500 hover:text-red-700"
+                              >
+                                Del
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        <button
+                          onClick={() => addColorRule(layout.i)}
+                          className="w-full py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
+                        >
+                          + Add Rule
+                        </button>
                       </div>
                     )}
-                    <div
-                      className="flex-1 overflow-hidden"
-                      style={{
-                        fontSize: style.fontSize,
-                        fontWeight: style.fontWeight,
-                        textAlign: style.textAlign
-                      }}
-                    >
-                      {String(value)}
-                    </div>
                   </div>
-
-                  {/* Style controls on hover */}
-                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 bg-white shadow rounded p-1 flex gap-1 z-10">
-                    <button
-                      onClick={() => updateFieldStyle(layout.i, {
-                        fontWeight: style.fontWeight === 'bold' ? 'normal' : 'bold'
-                      })}
-                      className={`w-6 h-6 text-xs rounded ${style.fontWeight === 'bold' ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
-                    >
-                      B
-                    </button>
-                    <button
-                      onClick={() => updateFieldStyle(layout.i, {
-                        fontSize: Math.min(24, style.fontSize + 2)
-                      })}
-                      className="w-6 h-6 text-xs rounded hover:bg-gray-100"
-                    >
-                      A+
-                    </button>
-                    <button
-                      onClick={() => updateFieldStyle(layout.i, {
-                        fontSize: Math.max(10, style.fontSize - 2)
-                      })}
-                      className="w-6 h-6 text-xs rounded hover:bg-gray-100"
-                    >
-                      A-
-                    </button>
-                    <button
-                      onClick={() => updateFieldStyle(layout.i, { showLabel: !style.showLabel })}
-                      className={`w-6 h-6 text-xs rounded ${style.showLabel ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
-                    >
-                      L
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </GridLayout>
+                )
+              })}
+            </GridLayout>
+          </div>
         </div>
       </div>
     </div>

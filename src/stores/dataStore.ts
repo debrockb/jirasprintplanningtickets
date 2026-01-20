@@ -62,7 +62,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
       fontSize: 14,
       fontWeight: 'normal',
       textAlign: 'left',
-      showLabel: true
+      showLabel: true,
+      showBorder: true,
+      colorRules: []
     }))
 
     set({ rows, columns, fieldMappings: mappings, fieldLayouts: layouts, fieldStyles: styles })

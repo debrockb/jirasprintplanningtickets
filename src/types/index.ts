@@ -18,12 +18,22 @@ export interface FieldLayout {
   minH?: number
 }
 
+export interface ColorRule {
+  field: string          // Field to check
+  operator: 'equals' | 'contains' | 'notEmpty' | 'empty'
+  value: string          // Value to match (for equals/contains)
+  backgroundColor: string
+  textColor: string
+}
+
 export interface FieldStyle {
   fieldId: string
   fontSize: number
   fontWeight: 'normal' | 'bold'
   textAlign: 'left' | 'center' | 'right'
   showLabel: boolean
+  showBorder: boolean
+  colorRules: ColorRule[]
 }
 
 export interface EnrichmentGroup {

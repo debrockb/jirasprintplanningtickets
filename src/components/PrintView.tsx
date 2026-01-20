@@ -1,12 +1,11 @@
-import React, { useMemo } from 'react'
 import { useDataStore } from '../stores/dataStore'
+import { ColorRule, TicketRow } from '../types'
 
-// Match the CardDesigner dimensions
 const GRID_COLS = 12
-const GRID_ROW_HEIGHT = 30
-const CARD_WIDTH = 794  // pixels (210mm at 96dpi)
-const CARD_HEIGHT = 561 // pixels (148.5mm at 96dpi)
-const PADDING = 20
+const GRID_ROW_HEIGHT = 25
+const CARD_WIDTH = 794
+const CARD_HEIGHT = 561
+const PADDING = 10
 
 export function PrintView() {
   const rows = useDataStore(state => state.rows)
@@ -19,10 +18,12 @@ export function PrintView() {
   const getFieldStyle = (fieldId: string) => {
     return fieldStyles.find(s => s.fieldId === fieldId) || {
       fieldId,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: 'normal' as const,
       textAlign: 'left' as const,
-      showLabel: true
+      showLabel: true,
+      showBorder: true,
+      colorRules: []
     }
   }
 
@@ -34,11 +35,39 @@ export function PrintView() {
     return mapping?.displayName || fieldId
   }
 
+  const evaluateColorRules = (rules: ColorRule[], row: TicketRow | null) => {
+    if (!row || !rules.length) return { backgroundColor: '', textColor: '' }
+
+    for (const rule of rules) {
+      const fieldValue = String(row[rule.field] || '')
+
+      let matches = false
+      switch (rule.operator) {
+        case 'equals':
+          matches = fieldValue.toLowerCase() === rule.value.toLowerCase()
+          break
+        case 'contains':
+          matches = fieldValue.toLowerCase().includes(rule.value.toLowerCase())
+          break
+        case 'notEmpty':
+          matches = fieldValue.trim() !== ''
+          break
+        case 'empty':
+          matches = fieldValue.trim() === ''
+          break
+      }
+
+      if (matches) {
+        return { backgroundColor: rule.backgroundColor, textColor: rule.textColor }
+      }
+    }
+    return { backgroundColor: '', textColor: '' }
+  }
+
   const handlePrint = () => {
     window.print()
   }
 
-  // Calculate column width in pixels
   const colWidth = (CARD_WIDTH - PADDING * 2) / GRID_COLS
 
   const getAllLayouts = (enrichedRow: Record<string, unknown>) => {
@@ -76,7 +105,6 @@ export function PrintView() {
 
   return (
     <div>
-      {/* Print button (hidden when printing) */}
       <button
         onClick={handlePrint}
         className="no-print fixed bottom-6 right-6 px-6 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 z-50"
@@ -84,8 +112,7 @@ export function PrintView() {
         Print All Cards ({rows.length})
       </button>
 
-      {/* Print preview - scrollable list of cards */}
-      <div className="space-y-8">
+      <div className="space-y-4">
         {rows.map((row, index) => {
           const enrichedRow = getEnrichedRow(row)
           const allLayouts = getAllLayouts(enrichedRow)
@@ -93,18 +120,17 @@ export function PrintView() {
           return (
             <div
               key={index}
-              className="print-card bg-white mx-auto shadow-lg border border-gray-200"
+              className="print-card bg-white mx-auto shadow border border-gray-200"
               style={{
                 width: CARD_WIDTH,
-                height: CARD_HEIGHT,
+                minHeight: CARD_HEIGHT,
                 position: 'relative',
                 padding: PADDING,
                 boxSizing: 'border-box'
               }}
             >
-              {/* Card number indicator (preview only) */}
-              <div className="no-print absolute top-2 right-2 text-xs text-gray-400">
-                Card {index + 1} / {rows.length}
+              <div className="no-print absolute top-1 right-2 text-xs text-gray-400">
+                {index + 1} / {rows.length}
               </div>
 
               {allLayouts.map(layout => {
@@ -114,8 +140,8 @@ export function PrintView() {
                   ? layout.i.replace('_enriched_', '')
                   : layout.i
                 const value = enrichedRow[fieldId] || ''
+                const colors = evaluateColorRules(style.colorRules || [], enrichedRow as TicketRow)
 
-                // Calculate position using same formula as CardDesigner
                 const left = layout.x * colWidth
                 const top = layout.y * GRID_ROW_HEIGHT
                 const width = layout.w * colWidth
@@ -124,20 +150,25 @@ export function PrintView() {
                 return (
                   <div
                     key={layout.i}
-                    className="absolute overflow-hidden"
+                    className={`absolute overflow-hidden ${style.showBorder ? 'border border-gray-300 rounded' : ''}`}
                     style={{
                       left: PADDING + left,
                       top: PADDING + top,
                       width: width,
                       height: height,
-                      padding: 8,
-                      boxSizing: 'border-box'
+                      padding: 4,
+                      boxSizing: 'border-box',
+                      backgroundColor: colors.backgroundColor || (style.showBorder ? '#fafafa' : 'transparent'),
+                      color: colors.textColor || 'inherit'
                     }}
                   >
                     {style.showLabel && (
                       <div
-                        className="text-gray-400 mb-1 truncate"
-                        style={{ fontSize: 11 }}
+                        className="truncate mb-0.5"
+                        style={{
+                          fontSize: 10,
+                          color: colors.textColor || '#9ca3af'
+                        }}
                       >
                         {displayName}
                       </div>
@@ -148,7 +179,7 @@ export function PrintView() {
                         fontSize: style.fontSize,
                         fontWeight: style.fontWeight,
                         textAlign: style.textAlign,
-                        lineHeight: 1.3
+                        lineHeight: 1.2
                       }}
                     >
                       {String(value)}
