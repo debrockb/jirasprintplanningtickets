@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { FileUpload } from './components/FileUpload'
 import { FieldMapper } from './components/FieldMapper'
 import { CardDesigner } from './components/CardDesigner'
@@ -6,6 +6,7 @@ import { Enrichment } from './components/Enrichment'
 import { PrintView } from './components/PrintView'
 import { AIChat } from './components/AIChat'
 import { TemplateManager } from './components/TemplateManager'
+import { StylePanel } from './components/StylePanel'
 import { useDataStore } from './stores/dataStore'
 
 type Tab = 'design' | 'print'
@@ -77,8 +78,9 @@ function App() {
         ) : activeTab === 'design' ? (
           <div className="flex gap-4">
             {/* Left sidebar */}
-            <div className="w-72 flex-shrink-0 space-y-4">
+            <div className="w-72 flex-shrink-0 space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto">
               <FieldMapper />
+              <StylePanel />
               <Enrichment />
             </div>
 
