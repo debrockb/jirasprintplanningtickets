@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDataStore } from '../stores/dataStore'
 import { ColorRule, CardBackgroundRule } from '../types'
 
 export function StylePanel() {
   const columns = useDataStore(state => state.columns)
+  const rows = useDataStore(state => state.rows)
   const fieldMappings = useDataStore(state => state.fieldMappings)
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const updateFieldStyle = useDataStore(state => state.updateFieldStyle)
@@ -14,6 +15,18 @@ export function StylePanel() {
   const [showCardBg, setShowCardBg] = useState(true)
 
   const enabledFields = fieldMappings.filter(m => m.enabled)
+
+  // Get unique values for a field
+  const getUniqueValues = (fieldName: string): string[] => {
+    const values = new Set<string>()
+    for (const row of rows) {
+      const val = row[fieldName]
+      if (val !== null && val !== undefined && String(val).trim() !== '') {
+        values.add(String(val))
+      }
+    }
+    return Array.from(values).sort()
+  }
 
   const getFieldStyle = (fieldId: string) => {
     return fieldStyles.find(s => s.fieldId === fieldId) || {
@@ -132,7 +145,20 @@ export function StylePanel() {
                         <option value="empty">is empty</option>
                       </select>
 
-                      {(rule.operator === 'equals' || rule.operator === 'contains') && (
+                      {rule.operator === 'equals' && (
+                        <select
+                          value={rule.value}
+                          onChange={(e) => updateCardBgRule(idx, { value: e.target.value })}
+                          className="flex-1 border rounded px-1 py-0.5 text-xs"
+                        >
+                          <option value="">Select value...</option>
+                          {getUniqueValues(rule.field).map(val => (
+                            <option key={val} value={val}>{val}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {rule.operator === 'contains' && (
                         <input
                           type="text"
                           value={rule.value}
@@ -286,7 +312,20 @@ export function StylePanel() {
                         <option value="empty">is empty</option>
                       </select>
 
-                      {(rule.operator === 'equals' || rule.operator === 'contains') && (
+                      {rule.operator === 'equals' && (
+                        <select
+                          value={rule.value}
+                          onChange={(e) => updateColorRule(selectedField, idx, { value: e.target.value })}
+                          className="flex-1 border rounded px-1 py-0.5 text-xs"
+                        >
+                          <option value="">Select value...</option>
+                          {getUniqueValues(rule.field).map(val => (
+                            <option key={val} value={val}>{val}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {rule.operator === 'contains' && (
                         <input
                           type="text"
                           value={rule.value}

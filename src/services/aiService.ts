@@ -70,7 +70,12 @@ async function sendToOllama(provider: AIProvider, messages: ChatMessage[]): Prom
 }
 
 async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Promise<string> {
-  const response = await fetch(`${provider.endpoint}/v1/chat/completions`, {
+  const url = `${provider.endpoint}/v1/chat/completions`
+  console.log('LM Studio request to:', url)
+  console.log('LM Studio model:', provider.model)
+  console.log('LM Studio messages:', messages)
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -83,12 +88,19 @@ async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Pr
     })
   })
 
+  console.log('LM Studio response status:', response.status, response.statusText)
+
   if (!response.ok) {
+    const errorText = await response.text()
+    console.error('LM Studio error response:', errorText)
     throw new Error(`LM Studio error: ${response.statusText}`)
   }
 
   const data = await response.json()
-  return data.choices?.[0]?.message?.content || ''
+  console.log('LM Studio response data:', data)
+  const content = data.choices?.[0]?.message?.content || ''
+  console.log('LM Studio extracted content:', content)
+  return content
 }
 
 async function sendToOpenRouter(provider: AIProvider, messages: ChatMessage[]): Promise<string> {
@@ -119,6 +131,49 @@ async function sendToOpenRouter(provider: AIProvider, messages: ChatMessage[]): 
 
   const data = await response.json()
   return data.choices?.[0]?.message?.content || ''
+}
+
+export async function processFieldValue(
+  provider: AIProvider,
+  fieldValue: string,
+  prompt: string
+): Promise<string> {
+  console.log('processFieldValue called with:', { providerName: provider.name, fieldValueLength: fieldValue.length, promptLength: prompt.length })
+
+  const systemPrompt = `You are a helpful assistant that transforms text based on user instructions.
+You will receive a text value and a transformation instruction.
+Respond ONLY with the transformed text - no explanations, no meta-commentary.
+
+FORMATTING RULES:
+- Use markdown formatting: **bold** for emphasis, - for bullet points (each on new line), ## for headers
+- Each bullet point MUST be on its own line
+- Keep the response concise and focused on the transformation
+- Do not wrap your response in quotes or code blocks`
+
+  const userMessage = `Text to transform:
+"""
+${fieldValue}
+"""
+
+Transformation instruction: ${prompt}
+
+Respond with only the transformed text:`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage }
+  ]
+
+  switch (provider.name) {
+    case 'ollama':
+      return sendToOllama(provider, messages)
+    case 'lmstudio':
+      return sendToLMStudio(provider, messages)
+    case 'openrouter':
+      return sendToOpenRouter(provider, messages)
+    default:
+      throw new Error(`Unknown provider: ${provider.name}`)
+  }
 }
 
 export async function testConnection(provider: AIProvider): Promise<boolean> {

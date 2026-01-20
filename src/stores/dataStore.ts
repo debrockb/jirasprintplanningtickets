@@ -7,6 +7,8 @@ interface DataStore {
   columns: string[]
   setData: (rows: TicketRow[], columns: string[]) => void
   clearData: () => void
+  updateRowField: (rowIndex: number, fieldName: string, value: string) => void
+  updateAllRowsField: (fieldName: string, values: Map<number, string>) => void
 
   // Field mappings
   fieldMappings: FieldMapping[]
@@ -75,6 +77,17 @@ export const useDataStore = create<DataStore>((set, get) => ({
     set({ rows, columns, fieldMappings: mappings, fieldLayouts: layouts, fieldStyles: styles })
   },
   clearData: () => set({ rows: [], columns: [], fieldMappings: [], fieldLayouts: [], fieldStyles: [] }),
+  updateRowField: (rowIndex, fieldName, value) => set(state => ({
+    rows: state.rows.map((row, i) =>
+      i === rowIndex ? { ...row, [fieldName]: value } : row
+    )
+  })),
+  updateAllRowsField: (fieldName, values) => set(state => ({
+    rows: state.rows.map((row, i) => {
+      const newValue = values.get(i)
+      return newValue !== undefined ? { ...row, [fieldName]: newValue } : row
+    })
+  })),
 
   fieldMappings: [],
   setFieldMappings: (mappings) => set({ fieldMappings: mappings }),

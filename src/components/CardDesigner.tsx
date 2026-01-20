@@ -4,6 +4,7 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useDataStore } from '../stores/dataStore'
 import { FieldLayout, ColorRule, TicketRow, CardBackgroundRule } from '../types'
+import { renderMarkdown } from '../utils/markdownRenderer'
 
 const GRID_COLS = 12
 const GRID_ROW_HEIGHT = 25
@@ -326,12 +327,12 @@ export function CardDesigner() {
                           textAlign: style.textAlign
                         }}
                       >
-                        {String(value)}
+                        {renderMarkdown(String(value))}
                       </div>
                     </div>
 
                     {/* Style controls on hover */}
-                    <div className="absolute -top-8 right-0 opacity-0 group-hover:opacity-100 bg-white shadow-lg rounded p-1 flex gap-1 z-20 border">
+                    <div className="absolute -top-8 left-0 opacity-0 group-hover:opacity-100 bg-white shadow-lg rounded p-1 flex gap-1 z-20 border">
                       <button
                         onClick={() => updateFieldStyle(layout.i, {
                           fontWeight: style.fontWeight === 'bold' ? 'normal' : 'bold'

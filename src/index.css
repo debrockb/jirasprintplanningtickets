@@ -72,6 +72,7 @@ body {
     background: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    font-size: 12pt !important;
   }
 
   .no-print {
@@ -88,17 +89,27 @@ body {
     break-after: page;
     break-inside: avoid;
     box-sizing: border-box !important;
-    background: white !important;
     box-shadow: none !important;
     border: none !important;
     margin: 0 auto !important;
     position: relative !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   .print-card:last-child {
     page-break-after: auto;
     break-after: auto;
+  }
+
+  /* Ensure text is readable */
+  .print-card * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Make borders darker for print */
+  .print-card .border {
+    border-color: #888 !important;
   }
 
   /* Half A4 - 2 cards per page (landscape) */
@@ -107,7 +118,7 @@ body {
     height: 148.5mm !important;
     max-width: 297mm !important;
     max-height: 148.5mm !important;
-    padding: 10mm !important;
+    padding: 8mm !important;
   }
 
   /* Full A4 - 1 card per page (portrait) */
@@ -116,7 +127,7 @@ body {
     height: 297mm !important;
     max-width: 210mm !important;
     max-height: 297mm !important;
-    padding: 15mm !important;
+    padding: 12mm !important;
   }
 }
 

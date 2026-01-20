@@ -5,6 +5,7 @@ import { CardDesigner } from './components/CardDesigner'
 import { Enrichment } from './components/Enrichment'
 import { PrintView } from './components/PrintView'
 import { AIChat } from './components/AIChat'
+import { AIFieldProcessor } from './components/AIFieldProcessor'
 import { TemplateManager } from './components/TemplateManager'
 import { StylePanel } from './components/StylePanel'
 import { useDataStore } from './stores/dataStore'
@@ -94,8 +95,9 @@ function App() {
         )}
       </main>
 
-      {/* AI Chat */}
+      {/* AI Tools */}
       <AIChat />
+      <AIFieldProcessor />
     </div>
   )
 }
