@@ -67,31 +67,53 @@ body {
 /* Print styles for half-A4 cards */
 @media print {
   @page {
-    size: A4;
+    size: A4 landscape;
     margin: 0;
   }
 
-  body {
-    margin: 0;
-    padding: 0;
-    background: white;
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .no-print {
     display: none !important;
   }
 
+  .space-y-8 > * + * {
+    margin-top: 0 !important;
+  }
+
   .print-card {
-    width: 210mm;
-    height: 148.5mm;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
     page-break-after: always;
-    box-sizing: border-box;
-    padding: 10mm;
-    background: white;
+    page-break-inside: avoid;
+    break-after: page;
+    break-inside: avoid;
+    box-sizing: border-box !important;
+    background: white !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 15mm !important;
+    position: relative !important;
+    overflow: hidden !important;
   }
 
   .print-card:last-child {
     page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Scale the content to fit A4 landscape */
+  .print-card > div {
+    transform-origin: top left;
   }
 }
 

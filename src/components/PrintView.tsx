@@ -1,6 +1,13 @@
 import React, { useMemo } from 'react'
 import { useDataStore } from '../stores/dataStore'
 
+// Match the CardDesigner dimensions
+const GRID_COLS = 12
+const GRID_ROW_HEIGHT = 30
+const CARD_WIDTH = 794  // pixels (210mm at 96dpi)
+const CARD_HEIGHT = 561 // pixels (148.5mm at 96dpi)
+const PADDING = 20
+
 export function PrintView() {
   const rows = useDataStore(state => state.rows)
   const fieldMappings = useDataStore(state => state.fieldMappings)
@@ -8,11 +15,6 @@ export function PrintView() {
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const getEnrichedRow = useDataStore(state => state.getEnrichedRow)
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
-
-  const enabledMappings = useMemo(() =>
-    fieldMappings.filter(m => m.enabled),
-    [fieldMappings]
-  )
 
   const getFieldStyle = (fieldId: string) => {
     return fieldStyles.find(s => s.fieldId === fieldId) || {
@@ -36,13 +38,41 @@ export function PrintView() {
     window.print()
   }
 
+  // Calculate column width in pixels
+  const colWidth = (CARD_WIDTH - PADDING * 2) / GRID_COLS
+
+  const getAllLayouts = (enrichedRow: Record<string, unknown>) => {
+    const allLayouts = [...fieldLayouts]
+
+    if (enrichmentGroup) {
+      const groupValue = enrichedRow[enrichmentGroup.groupField]
+      const enrichedFields = groupValue
+        ? enrichmentGroup.enrichments[String(groupValue)]
+        : null
+
+      if (enrichedFields) {
+        let maxY = Math.max(0, ...fieldLayouts.map(l => l.y + l.h))
+        Object.keys(enrichedFields).forEach((fieldName, i) => {
+          const exists = allLayouts.find(l => l.i === `_enriched_${fieldName}`)
+          if (!exists) {
+            allLayouts.push({
+              i: `_enriched_${fieldName}`,
+              x: (i % 2) * 6,
+              y: maxY + Math.floor(i / 2) * 2,
+              w: 6,
+              h: 2
+            })
+          }
+        })
+      }
+    }
+
+    return allLayouts
+  }
+
   if (rows.length === 0) {
     return null
   }
-
-  // Calculate grid positions (convert from react-grid-layout units to CSS)
-  const gridColWidth = (210 - 20) / 12  // mm, accounting for padding
-  const gridRowHeight = (148.5 - 20) / 18  // mm, 18 rows max
 
   return (
     <div>
@@ -54,36 +84,29 @@ export function PrintView() {
         Print All Cards ({rows.length})
       </button>
 
-      {/* Print content */}
-      <div className="print-content">
+      {/* Print preview - scrollable list of cards */}
+      <div className="space-y-8">
         {rows.map((row, index) => {
           const enrichedRow = getEnrichedRow(row)
-
-          // Get all layouts including enriched fields
-          const allLayouts = [...fieldLayouts]
-          if (enrichmentGroup) {
-            const groupValue = enrichedRow[enrichmentGroup.groupField]
-            const enrichedFields = groupValue ?
-              enrichmentGroup.enrichments[String(groupValue)] : null
-            if (enrichedFields) {
-              let maxY = Math.max(0, ...fieldLayouts.map(l => l.y + l.h))
-              Object.keys(enrichedFields).forEach((fieldName, i) => {
-                const exists = allLayouts.find(l => l.i === `_enriched_${fieldName}`)
-                if (!exists) {
-                  allLayouts.push({
-                    i: `_enriched_${fieldName}`,
-                    x: (i % 2) * 6,
-                    y: maxY + Math.floor(i / 2) * 2,
-                    w: 6,
-                    h: 2
-                  })
-                }
-              })
-            }
-          }
+          const allLayouts = getAllLayouts(enrichedRow)
 
           return (
-            <div key={index} className="print-card relative">
+            <div
+              key={index}
+              className="print-card bg-white mx-auto shadow-lg border border-gray-200"
+              style={{
+                width: CARD_WIDTH,
+                height: CARD_HEIGHT,
+                position: 'relative',
+                padding: PADDING,
+                boxSizing: 'border-box'
+              }}
+            >
+              {/* Card number indicator (preview only) */}
+              <div className="no-print absolute top-2 right-2 text-xs text-gray-400">
+                Card {index + 1} / {rows.length}
+              </div>
+
               {allLayouts.map(layout => {
                 const style = getFieldStyle(layout.i)
                 const displayName = getDisplayName(layout.i)
@@ -92,34 +115,40 @@ export function PrintView() {
                   : layout.i
                 const value = enrichedRow[fieldId] || ''
 
-                // Calculate position
-                const left = layout.x * gridColWidth + 10
-                const top = layout.y * gridRowHeight + 10
-                const width = layout.w * gridColWidth
-                const height = layout.h * gridRowHeight
+                // Calculate position using same formula as CardDesigner
+                const left = layout.x * colWidth
+                const top = layout.y * GRID_ROW_HEIGHT
+                const width = layout.w * colWidth
+                const height = layout.h * GRID_ROW_HEIGHT
 
                 return (
                   <div
                     key={layout.i}
                     className="absolute overflow-hidden"
                     style={{
-                      left: `${left}mm`,
-                      top: `${top}mm`,
-                      width: `${width}mm`,
-                      height: `${height}mm`,
-                      padding: '2mm'
+                      left: PADDING + left,
+                      top: PADDING + top,
+                      width: width,
+                      height: height,
+                      padding: 8,
+                      boxSizing: 'border-box'
                     }}
                   >
                     {style.showLabel && (
-                      <div className="text-xs text-gray-400 mb-1">
+                      <div
+                        className="text-gray-400 mb-1 truncate"
+                        style={{ fontSize: 11 }}
+                      >
                         {displayName}
                       </div>
                     )}
                     <div
+                      className="overflow-hidden"
                       style={{
-                        fontSize: `${style.fontSize}px`,
+                        fontSize: style.fontSize,
                         fontWeight: style.fontWeight,
-                        textAlign: style.textAlign
+                        textAlign: style.textAlign,
+                        lineHeight: 1.3
                       }}
                     >
                       {String(value)}
