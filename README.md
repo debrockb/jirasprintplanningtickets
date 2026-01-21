@@ -26,7 +26,7 @@ A desktop application for designing and printing custom ticket/card layouts from
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd "Tickets speos app"
+cd ticket-card-printer
 
 # Install dependencies
 npm install
