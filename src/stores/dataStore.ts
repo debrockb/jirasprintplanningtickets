@@ -74,9 +74,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
       colorRules: []
     }))
 
-    set({ rows, columns, fieldMappings: mappings, fieldLayouts: layouts, fieldStyles: styles })
+    set({ rows, columns, fieldMappings: mappings, fieldLayouts: layouts, fieldStyles: styles, previewIndex: 0 })
   },
-  clearData: () => set({ rows: [], columns: [], fieldMappings: [], fieldLayouts: [], fieldStyles: [] }),
+  clearData: () => set({ rows: [], columns: [], fieldMappings: [], fieldLayouts: [], fieldStyles: [], previewIndex: 0 }),
   updateRowField: (rowIndex, fieldName, value) => set(state => ({
     rows: state.rows.map((row, i) =>
       i === rowIndex ? { ...row, [fieldName]: value } : row
@@ -167,7 +167,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
   }),
 
   previewIndex: 0,
-  setPreviewIndex: (index) => set({ previewIndex: index }),
+  setPreviewIndex: (index) => set(state => ({
+    previewIndex: Math.max(0, Math.min(index, state.rows.length - 1))
+  })),
 
   getEnrichedRow: (row) => {
     const { enrichmentGroup } = get()

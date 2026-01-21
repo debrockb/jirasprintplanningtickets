@@ -30,8 +30,9 @@ export function CardDesigner() {
 
   const currentRow = useMemo(() => {
     if (rows.length === 0) return null
-    const row = rows[previewIndex]
-    console.log('CardDesigner: currentRow computed, Description:', String(row?.Description || '').substring(0, 50))
+    const safeIndex = Math.min(previewIndex, rows.length - 1)
+    const row = rows[safeIndex]
+    if (!row) return null
     return getEnrichedRow(row)
   }, [rows, previewIndex, getEnrichedRow])
 

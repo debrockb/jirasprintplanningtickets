@@ -5,19 +5,17 @@ import { renderMarkdown } from '../utils/markdownRenderer'
 
 const GRID_COLS = 12
 const BASE_PADDING_PERCENT = 1.5 // padding as percentage
-const BASE_PADDING_PX = 10 // padding in pixels for calculations
 
-// Use mm for print consistency - these will be converted to the style
+// Use mm for print consistency
 const SIZES = {
-  'half-a4': { width: '210mm', height: '148.5mm', widthPx: 794, heightPx: 561, rowHeight: 25, label: 'Half A4 (2 per page)' },
-  'a4': { width: '210mm', height: '297mm', widthPx: 794, heightPx: 1123, rowHeight: 50, label: 'Full A4 (1 per page)' }
+  'half-a4': { width: '210mm', height: '148.5mm', label: 'Half A4' },
+  'a4': { width: '210mm', height: '297mm', label: 'Full A4' }
 }
 
 type PrintSize = keyof typeof SIZES
 
 export function PrintView() {
   const [printSize, setPrintSize] = useState<PrintSize>('half-a4')
-  const [autoFit, setAutoFit] = useState(true)
   const rows = useDataStore(state => state.rows)
   const fieldMappings = useDataStore(state => state.fieldMappings)
   const fieldLayouts = useDataStore(state => state.fieldLayouts)
@@ -108,7 +106,7 @@ export function PrintView() {
     window.print()
   }
 
-  const { width: CARD_WIDTH_MM, height: CARD_HEIGHT_MM, widthPx: CARD_WIDTH, heightPx: CARD_HEIGHT, rowHeight: BASE_ROW_HEIGHT } = SIZES[printSize]
+  const { width: CARD_WIDTH_MM, height: CARD_HEIGHT_MM } = SIZES[printSize]
 
   const getAllLayouts = (enrichedRow: Record<string, unknown>) => {
     const allLayouts = [...fieldLayouts]
@@ -139,47 +137,6 @@ export function PrintView() {
     return allLayouts
   }
 
-  // Calculate scale factor to fill the card
-  const calculateScale = (layouts: FieldLayout[]) => {
-    if (!autoFit || layouts.length === 0) {
-      return { scaleX: 1, scaleY: 1, contentWidth: 0, contentHeight: 0 }
-    }
-
-    // Find the bounding box of all layouts
-    let maxRight = 0
-    let maxBottom = 0
-
-    for (const layout of layouts) {
-      const right = (layout.x + layout.w)
-      const bottom = (layout.y + layout.h)
-      maxRight = Math.max(maxRight, right)
-      maxBottom = Math.max(maxBottom, bottom)
-    }
-
-    // Calculate base dimensions
-    const baseColWidth = (CARD_WIDTH - BASE_PADDING_PX * 2) / GRID_COLS
-    const contentWidth = maxRight * baseColWidth
-    const contentHeight = maxBottom * BASE_ROW_HEIGHT
-
-    // Available space (with padding)
-    const availableWidth = CARD_WIDTH - BASE_PADDING_PX * 2
-    const availableHeight = CARD_HEIGHT - BASE_PADDING_PX * 2
-
-    // Calculate scale factors
-    const scaleX = availableWidth / contentWidth
-    const scaleY = availableHeight / contentHeight
-
-    // Use the smaller scale to maintain aspect ratio, but cap at reasonable limits
-    const scale = Math.min(scaleX, scaleY, 2.5) // Cap at 2.5x to avoid overly large elements
-
-    return {
-      scaleX: scale,
-      scaleY: scale,
-      contentWidth,
-      contentHeight
-    }
-  }
-
   if (rows.length === 0) {
     return null
   }
@@ -197,15 +154,6 @@ export function PrintView() {
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoFit}
-            onChange={(e) => setAutoFit(e.target.checked)}
-            className="w-4 h-4"
-          />
-          Auto-fit content to card
-        </label>
         <button
           onClick={handlePrint}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -219,10 +167,6 @@ export function PrintView() {
           const enrichedRow = getEnrichedRow(row)
           const allLayouts = getAllLayouts(enrichedRow)
           const cardBgColor = evaluateCardBackground(enrichedRow as TicketRow)
-
-          // Calculate scale for this card's layouts
-          const { scaleX } = calculateScale(allLayouts)
-          const scale = scaleX
 
           // Find max grid extent for percentage calculations
           const maxGridX = GRID_COLS // Always use full 12 columns
