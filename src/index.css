@@ -65,6 +65,11 @@ body {
 }
 
 /* Print styles */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
 @media print {
   html, body {
     margin: 0 !important;
@@ -83,6 +88,12 @@ body {
     margin-top: 0 !important;
   }
 
+  .print-container {
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .print-card {
     page-break-after: always;
     page-break-inside: avoid;
@@ -91,9 +102,9 @@ body {
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     position: relative !important;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
 
   .print-card:last-child {
@@ -112,22 +123,16 @@ body {
     border-color: #888 !important;
   }
 
-  /* Half A4 - 2 cards per page (landscape) */
+  /* Half A4 - 2 cards per page (portrait width, half height) */
   .print-container.size-half-a4 .print-card {
-    width: 297mm !important;
+    width: 210mm !important;
     height: 148.5mm !important;
-    max-width: 297mm !important;
-    max-height: 148.5mm !important;
-    padding: 8mm !important;
   }
 
   /* Full A4 - 1 card per page (portrait) */
   .print-container.size-a4 .print-card {
     width: 210mm !important;
     height: 297mm !important;
-    max-width: 210mm !important;
-    max-height: 297mm !important;
-    padding: 12mm !important;
   }
 }
 

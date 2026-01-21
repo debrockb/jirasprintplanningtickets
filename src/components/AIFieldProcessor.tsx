@@ -166,9 +166,8 @@ export function AIFieldProcessor() {
         }
         setProgress({ current: 1, total: 1 })
       } else {
-        // Process all rows
+        // Process all rows - update each row individually for reliability
         const total = rows.length
-        const results = new Map<number, string>()
         setProgress({ current: 0, total })
 
         for (let i = 0; i < rows.length; i++) {
@@ -176,15 +175,17 @@ export function AIFieldProcessor() {
           if (originalValue.trim()) {
             try {
               const processed = await processFieldValue(provider, originalValue, currentPrompt)
-              results.set(i, processed)
-            } catch {
+              console.log(`Updating row ${i} with processed value (length: ${processed.length})`)
+              updateRowField(i, targetFieldName, processed)
+            } catch (err) {
+              console.error(`Error processing row ${i}:`, err)
               // Skip failed rows
             }
           }
           setProgress({ current: i + 1, total })
         }
 
-        updateAllRowsField(targetFieldName, results)
+        console.log('All rows processed')
       }
 
       setPreview(null)

@@ -30,7 +30,9 @@ export function CardDesigner() {
 
   const currentRow = useMemo(() => {
     if (rows.length === 0) return null
-    return getEnrichedRow(rows[previewIndex])
+    const row = rows[previewIndex]
+    console.log('CardDesigner: currentRow computed, Description:', String(row?.Description || '').substring(0, 50))
+    return getEnrichedRow(row)
   }, [rows, previewIndex, getEnrichedRow])
 
   const allLayouts = useMemo(() => {

@@ -75,6 +75,9 @@ async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Pr
   console.log('LM Studio model:', provider.model)
   console.log('LM Studio messages:', messages)
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout for large models
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,9 +87,13 @@ async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Pr
         role: m.role,
         content: m.content
       })),
-      temperature: 0.7
-    })
+      temperature: 0.5,
+      max_tokens: 1024
+    }),
+    signal: controller.signal
   })
+
+  clearTimeout(timeoutId)
 
   console.log('LM Studio response status:', response.status, response.statusText)
 
@@ -98,7 +105,30 @@ async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Pr
 
   const data = await response.json()
   console.log('LM Studio response data:', data)
-  const content = data.choices?.[0]?.message?.content || ''
+  let content = data.choices?.[0]?.message?.content || ''
+
+  // Strip out <think> or <thinking> sections from reasoning models
+  // Handle closed tags first
+  content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  content = content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim()
+
+  // Handle unclosed tags - if content still starts with <think>, remove up to actual content
+  if (content.toLowerCase().startsWith('<think>')) {
+    // Look for where actual content might start (after blank lines or common patterns)
+    const patterns = [/\n\n\*\*/, /\n\n##/, /\n\n-\s/, /\n\nProblem/i, /\n\nSolution/i]
+    for (const pattern of patterns) {
+      const match = content.match(pattern)
+      if (match && match.index !== undefined) {
+        content = content.substring(match.index).trim()
+        break
+      }
+    }
+    // If still starts with <think>, just remove the tag line
+    if (content.toLowerCase().startsWith('<think>')) {
+      content = content.replace(/^<think>\s*/i, '').trim()
+    }
+  }
+
   console.log('LM Studio extracted content:', content)
   return content
 }

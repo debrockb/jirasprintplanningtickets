@@ -4,12 +4,13 @@ import { ColorRule, TicketRow, CardBackgroundRule, FieldLayout } from '../types'
 import { renderMarkdown } from '../utils/markdownRenderer'
 
 const GRID_COLS = 12
-const BASE_PADDING = 10
+const BASE_PADDING_PERCENT = 1.5 // padding as percentage
+const BASE_PADDING_PX = 10 // padding in pixels for calculations
 
-// A4 at 96 DPI: 794 x 1123 px, Half A4: 794 x 561 px
+// Use mm for print consistency - these will be converted to the style
 const SIZES = {
-  'half-a4': { width: 794, height: 561, rowHeight: 25, label: 'Half A4 (2 per page)' },
-  'a4': { width: 794, height: 1123, rowHeight: 50, label: 'Full A4 (1 per page)' }
+  'half-a4': { width: '210mm', height: '148.5mm', widthPx: 794, heightPx: 561, rowHeight: 25, label: 'Half A4 (2 per page)' },
+  'a4': { width: '210mm', height: '297mm', widthPx: 794, heightPx: 1123, rowHeight: 50, label: 'Full A4 (1 per page)' }
 }
 
 type PrintSize = keyof typeof SIZES
@@ -107,7 +108,7 @@ export function PrintView() {
     window.print()
   }
 
-  const { width: CARD_WIDTH, height: CARD_HEIGHT, rowHeight: BASE_ROW_HEIGHT } = SIZES[printSize]
+  const { width: CARD_WIDTH_MM, height: CARD_HEIGHT_MM, widthPx: CARD_WIDTH, heightPx: CARD_HEIGHT, rowHeight: BASE_ROW_HEIGHT } = SIZES[printSize]
 
   const getAllLayouts = (enrichedRow: Record<string, unknown>) => {
     const allLayouts = [...fieldLayouts]
@@ -156,13 +157,13 @@ export function PrintView() {
     }
 
     // Calculate base dimensions
-    const baseColWidth = (CARD_WIDTH - BASE_PADDING * 2) / GRID_COLS
+    const baseColWidth = (CARD_WIDTH - BASE_PADDING_PX * 2) / GRID_COLS
     const contentWidth = maxRight * baseColWidth
     const contentHeight = maxBottom * BASE_ROW_HEIGHT
 
     // Available space (with padding)
-    const availableWidth = CARD_WIDTH - BASE_PADDING * 2
-    const availableHeight = CARD_HEIGHT - BASE_PADDING * 2
+    const availableWidth = CARD_WIDTH - BASE_PADDING_PX * 2
+    const availableHeight = CARD_HEIGHT - BASE_PADDING_PX * 2
 
     // Calculate scale factors
     const scaleX = availableWidth / contentWidth
@@ -223,26 +224,32 @@ export function PrintView() {
           const { scaleX } = calculateScale(allLayouts)
           const scale = scaleX
 
-          // Scaled dimensions
-          const baseColWidth = (CARD_WIDTH - BASE_PADDING * 2) / GRID_COLS
-          const colWidth = baseColWidth * scale
-          const rowHeight = BASE_ROW_HEIGHT * scale
-          const padding = BASE_PADDING
+          // Find max grid extent for percentage calculations
+          const maxGridX = GRID_COLS // Always use full 12 columns
+          let maxGridY = 0
+          for (const layout of allLayouts) {
+            maxGridY = Math.max(maxGridY, layout.y + layout.h)
+          }
+          if (maxGridY === 0) maxGridY = 10 // default
+
+          // Content area percentage (leaving padding on edges)
+          const contentWidthPercent = 100 - 2 * BASE_PADDING_PERCENT
+          const contentHeightPercent = 100 - 2 * BASE_PADDING_PERCENT
 
           return (
             <div
               key={index}
               className="print-card mx-auto shadow border border-gray-200"
               style={{
-                width: CARD_WIDTH,
-                minHeight: CARD_HEIGHT,
+                width: CARD_WIDTH_MM,
+                height: CARD_HEIGHT_MM,
                 position: 'relative',
-                padding: padding,
                 boxSizing: 'border-box',
-                backgroundColor: cardBgColor
+                backgroundColor: cardBgColor,
+                overflow: 'hidden'
               }}
             >
-              <div className="no-print absolute top-1 right-2 text-xs text-gray-400">
+              <div className="no-print absolute top-1 right-2 text-xs text-gray-400" style={{ zIndex: 10 }}>
                 {index + 1} / {rows.length}
               </div>
 
@@ -255,25 +262,36 @@ export function PrintView() {
                 const value = enrichedRow[fieldId] || ''
                 const colors = evaluateColorRules(style.colorRules || [], enrichedRow as TicketRow)
 
-                const left = layout.x * colWidth
-                const top = layout.y * rowHeight
-                const width = layout.w * colWidth
-                const height = layout.h * rowHeight
+                // Calculate positions as percentages of the card
+                const leftPercent = BASE_PADDING_PERCENT + (layout.x / maxGridX) * contentWidthPercent
+                const topPercent = BASE_PADDING_PERCENT + (layout.y / maxGridY) * contentHeightPercent
+                const widthPercent = (layout.w / maxGridX) * contentWidthPercent
+                const heightPercent = (layout.h / maxGridY) * contentHeightPercent
 
-                // Scale font sizes for better readability
-                const scaledFontSize = Math.max(14, style.fontSize * scale)
-                const scaledLabelSize = Math.max(11, 10 * scale)
-                const fieldPadding = Math.max(6, 4 * scale)
+                // Auto-adjust font size based on content length and field type
+                const valueStr = String(value)
+                const isLongTextField = fieldId.toLowerCase().includes('description') ||
+                                        fieldId.toLowerCase().includes('notes') ||
+                                        fieldId.toLowerCase().includes('workshop') ||
+                                        fieldId.toLowerCase().includes('summary') ||
+                                        valueStr.length > 200
+
+                // Use smaller font for long text fields, larger for short fields
+                const scaledFontSize = isLongTextField
+                  ? Math.max(16, Math.min(style.fontSize, 18))  // Cap at 18px for long text
+                  : Math.max(24, style.fontSize)
+                const scaledLabelSize = Math.max(12, style.fontSize * 0.6)
+                const fieldPadding = 6
 
                 return (
                   <div
                     key={layout.i}
                     className={`absolute ${style.showBorder ? 'border border-gray-400 rounded' : ''}`}
                     style={{
-                      left: padding + left,
-                      top: padding + top,
-                      width: width,
-                      height: height,
+                      left: `${leftPercent}%`,
+                      top: `${topPercent}%`,
+                      width: `${widthPercent}%`,
+                      height: `${heightPercent}%`,
                       padding: fieldPadding,
                       boxSizing: 'border-box',
                       backgroundColor: colors.backgroundColor || (style.showBorder ? '#fafafa' : 'transparent'),

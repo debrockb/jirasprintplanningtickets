@@ -82,12 +82,20 @@ export const useDataStore = create<DataStore>((set, get) => ({
       i === rowIndex ? { ...row, [fieldName]: value } : row
     )
   })),
-  updateAllRowsField: (fieldName, values) => set(state => ({
-    rows: state.rows.map((row, i) => {
-      const newValue = values.get(i)
-      return newValue !== undefined ? { ...row, [fieldName]: newValue } : row
+  updateAllRowsField: (fieldName, values) => {
+    console.log('Store: updateAllRowsField called', { fieldName, valuesSize: values.size })
+    set(state => {
+      const newRows = state.rows.map((row, i) => {
+        const newValue = values.get(i)
+        if (newValue !== undefined) {
+          console.log(`Store: Updating row ${i}, field ${fieldName} with value length: ${newValue.length}`)
+        }
+        return newValue !== undefined ? { ...row, [fieldName]: newValue } : row
+      })
+      console.log('Store: New rows created, first row Description:', newRows[0]?.[fieldName]?.substring(0, 50))
+      return { rows: newRows }
     })
-  })),
+  },
 
   fieldMappings: [],
   setFieldMappings: (mappings) => set({ fieldMappings: mappings }),
