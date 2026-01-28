@@ -1,0 +1,18 @@
+# Exclude frontend source files and configs - only deploy the build directory
+static/frontend/*.ts
+static/frontend/*.tsx
+static/frontend/*.json
+static/frontend/*.config.js
+static/frontend/*.config.ts
+static/frontend/node_modules
+static/frontend/src
+static/frontend/components/*.tsx
+static/frontend/components/*.ts
+static/frontend/stores/*.ts
+static/frontend/stores/*.tsx
+static/frontend/services/*.ts
+static/frontend/services/*.tsx
+static/frontend/types/*.ts
+static/frontend/types/*.tsx
+static/frontend/utils/*.ts
+static/frontend/utils/*.tsx
