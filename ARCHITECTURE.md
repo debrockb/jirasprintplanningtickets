@@ -125,6 +125,61 @@ Excel/CSV File
 └───────────────────┘
 ```
 
+### 4. Card Sorting Flow
+
+```
+┌───────────────────┐
+│    SortPanel      │  User configures sorting rules
+│    Component      │
+│                   │
+│  • Simple sort    │
+│  • Linked issues  │
+│  • AI sorting     │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│    dataStore      │
+│                   │
+│  sortConfig       │  ─── Sorting rules configuration
+│  aiSortedResults  │  ─── Cached AI-sorted results
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────────────────────────────────────────────┐
+│                      PrintView Component                   │
+│                                                            │
+│  useMemo(() => {                                           │
+│    if (aiSortedResults) return aiSortedResults             │
+│    return applySorting(rawRows, sortConfig)                │
+│  })                                                        │
+└─────────┬─────────────────────────────────────────────────┘
+          │
+          ├─────► Manual Sorting (cardSorting.ts)
+          │       │
+          │       ├── Simple Sort: Field-based (asc/desc, numeric)
+          │       │   • Natural sort with localeCompare
+          │       │   • Handles null/undefined
+          │       │
+          │       └── Linked-Issues Grouping:
+          │           • Build graph from issue keys
+          │           • DFS traversal from root nodes
+          │           • Handle circular references
+          │           • Sort orphans alphabetically
+          │
+          └─────► AI Sorting (aiSorting.ts)
+                  │
+                  ├── Strategy Discovery:
+                  │   • Sample 50 random rows
+                  │   • Send to AI for analysis
+                  │   • Parse suggested strategies
+                  │
+                  └── Apply AI Sort:
+                      • Natural-language-links mode
+                      • Semantic-clustering mode
+                      • Fuzzy-matching mode
+```
+
 ## State Architecture
 
 ### Store Responsibilities
@@ -142,12 +197,16 @@ Excel/CSV File
 │  • fieldMappings: Map         │  • fieldStyles: FieldStyle[]             │
 │  • enrichmentData: Map        │  • colorRules: ColorRule[]               │
 │                               │  • cardBackgroundRules: Rule[]           │
+│                               │  • sortConfig: SortConfig                │
+│                               │  • aiSortedResults: Results[]            │
 │                                                                          │
 │  Key Methods:                                                            │
 │  • setData() ─────────── Initialize from parsed file                     │
 │  • getEnrichedRow() ──── Merge base row with enrichment data            │
 │  • updateFieldLayout() ─ Handle drag-drop position changes              │
 │  • updateFieldStyle() ── Apply styling changes                          │
+│  • setSortConfig() ───── Update sorting configuration                   │
+│  • setAISortedResults() ─ Cache AI sorting results                      │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -156,7 +215,7 @@ Excel/CSV File
 │                          (Persistence Layer)                             │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  • templates: CardTemplate[]     Saved card designs                      │
+│  • templates: CardTemplate[]     Saved card designs (includes sortConfig)│
 │  • enrichments: Enrichment[]     Saved enrichment configs                │
 │                                                                          │
 │  Persistence: localStorage with Zustand persist middleware               │
@@ -167,6 +226,7 @@ Excel/CSV File
 │  1. First pass: Match columns by exact name                              │
 │  2. Second pass: Match remaining by original index                       │
 │  3. Create default mappings for new columns                              │
+│  4. Load sortConfig with template                                        │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -206,13 +266,20 @@ App.tsx
 │   └── CardDesigner (Main Area)
 │       ├── Navigation Controls
 │       ├── Auto-Arrange Button
+│       ├── SortPanel ───────────► dataStore.sortConfig, aiSortedResults
+│       │   ├── Simple Sort Rules
+│       │   ├── Linked-Issue Grouping
+│       │   └── AI Sorting Config
 │       └── GridLayout ──────────► dataStore.fieldLayouts
 │           └── Field Items (draggable/resizable)
 │
 ├── [Data Loaded - Print Tab]
 │   └── PrintView
+│       ├── Scroll-to-Top Button (appears after scrolling 300px)
 │       ├── Size Selector (Half A4 / Full A4)
-│       └── Card Grid ───────────► CSS @media print
+│       ├── Sort Status Indicator
+│       └── Card Grid ───────────► Sorted results with card numbering
+│           └── CSS @media print
 │
 ├── AIChat (Floating Panel)
 │   └── Chat Interface ──────────► aiStore, aiService
@@ -279,6 +346,30 @@ interface CardTemplate {
   fieldStyles: FieldStyle[];
   colorRules: ColorRule[];
   cardBackgroundRules: CardBackgroundRule[];
+  sortConfig?: SortConfig;
+}
+
+// Card sorting configuration
+interface SortConfig {
+  rules: SortRule[];
+  aiSort?: AISortConfig;
+}
+
+interface SortRule {
+  id: string;
+  type: 'simple' | 'linked-issues';
+  simple?: SimpleSortConfig;
+  linkedIssues?: LinkedIssueGroupConfig;
+}
+
+// Result of sorting operation
+interface SortedCardResult {
+  row: TicketRow;
+  originalIndex: number;
+  groupId?: string;        // For linked-issue groups
+  groupSize?: number;      // Number of cards in group
+  aiGroupId?: string;      // For AI-based grouping
+  aiSimilarity?: number;   // AI similarity score
 }
 ```
 
