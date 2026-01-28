@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDataStore } from '../stores/dataStore'
 import { ColorRule, TicketRow, CardBackgroundRule, FieldLayout } from '../types'
 import { renderMarkdown } from '../utils/markdownRenderer'
+import { applySorting } from '../utils/cardSorting'
 
 const GRID_COLS = 12
 const BASE_PADDING_PERCENT = 1.5 // padding as percentage
@@ -16,13 +17,60 @@ type PrintSize = keyof typeof SIZES
 
 export function PrintView() {
   const [printSize, setPrintSize] = useState<PrintSize>('half-a4')
-  const rows = useDataStore(state => state.rows)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const rawRows = useDataStore(state => state.rows)
   const fieldMappings = useDataStore(state => state.fieldMappings)
   const fieldLayouts = useDataStore(state => state.fieldLayouts)
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const getEnrichedRow = useDataStore(state => state.getEnrichedRow)
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
   const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
+  const sortConfig = useDataStore(state => state.sortConfig)
+  const aiSortedResults = useDataStore(state => state.aiSortedResults)
+
+  // Show scroll to top button when scrolled down
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Apply sorting - use AI results if available, otherwise apply regular sorting
+  const sortedResults = useMemo(() => {
+    console.log('📋 PrintView: Sorting tickets...')
+    console.log('📋 rawRows:', rawRows.length)
+    console.log('📋 sortConfig:', JSON.stringify(sortConfig, null, 2))
+    console.log('📋 aiSortedResults:', aiSortedResults?.length || 'null')
+
+    if (aiSortedResults && aiSortedResults.length > 0) {
+      console.log('✅ PrintView: Using AI-sorted results', aiSortedResults.length)
+      return aiSortedResults
+    }
+
+    console.log('📊 PrintView: Applying regular sorting...')
+    const sorted = applySorting(rawRows, sortConfig)
+    console.log('📊 PrintView: Regular sorting complete. Results:', sorted.length)
+
+    // Show first 5 results for debugging
+    if (sorted.length > 0) {
+      console.log('📊 First 5 sorted results:', sorted.slice(0, 5).map((r, i) => ({
+        position: i + 1,
+        key: r.row.Key,
+        linkedIssues: r.row['Linked Issues'],
+        groupId: r.groupId,
+        groupSize: r.groupSize
+      })))
+    }
+
+    return sorted
+  }, [rawRows, sortConfig, aiSortedResults])
 
   const getFieldStyle = (fieldId: string) => {
     return fieldStyles.find(s => s.fieldId === fieldId) || {
@@ -137,12 +185,23 @@ export function PrintView() {
     return allLayouts
   }
 
-  if (rows.length === 0) {
+  if (sortedResults.length === 0) {
     return null
   }
 
   return (
     <div className={`print-container size-${printSize}`}>
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="no-print fixed top-24 left-6 z-50 px-4 py-3 bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700 transition-all"
+          title="Scroll to top"
+        >
+          ↑ Top
+        </button>
+      )}
+
       {/* Print controls */}
       <div className="no-print fixed bottom-6 right-6 flex flex-col gap-2 z-50 bg-white p-3 rounded-lg shadow-lg border">
         <select
@@ -154,16 +213,30 @@ export function PrintView() {
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
+
+        {/* Sort status */}
+        {sortConfig.rules.length > 0 && (
+          <div className="border-t pt-2 mt-2">
+            <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
+              <strong>Sorting active:</strong> {sortConfig.rules.length} rule{sortConfig.rules.length > 1 ? 's' : ''} applied
+              <div className="text-xs text-gray-500 mt-1">
+                Configure sorting in the "Design Cards" tab
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handlePrint}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          Print All Cards ({rows.length})
+          Print All Cards ({sortedResults.length})
         </button>
       </div>
 
       <div className="space-y-4">
-        {rows.map((row, index) => {
+        {sortedResults.map((result, displayIndex) => {
+          const { row, originalIndex, groupId, groupSize } = result
           const enrichedRow = getEnrichedRow(row)
           const allLayouts = getAllLayouts(enrichedRow)
           const cardBgColor = evaluateCardBackground(enrichedRow as TicketRow)
@@ -182,7 +255,7 @@ export function PrintView() {
 
           return (
             <div
-              key={index}
+              key={displayIndex}
               className="print-card mx-auto shadow border border-gray-200"
               style={{
                 width: CARD_WIDTH_MM,
@@ -194,7 +267,24 @@ export function PrintView() {
               }}
             >
               <div className="no-print absolute top-1 right-2 text-xs text-gray-400" style={{ zIndex: 10 }}>
-                {index + 1} / {rows.length}
+                {displayIndex + 1} / {sortedResults.length}
+              </div>
+
+              {/* Card numbering - bottom right corner */}
+              <div
+                className="print-show absolute bottom-1 right-2 text-xs text-gray-400"
+                style={{
+                  zIndex: 5,
+                  fontSize: '8px',
+                  fontWeight: 300
+                }}
+              >
+                #{displayIndex + 1}
+                {groupId && groupSize && groupSize > 1 && (
+                  <span className="ml-1 text-gray-300">
+                    (group: {groupSize})
+                  </span>
+                )}
               </div>
 
               {allLayouts.map(layout => {

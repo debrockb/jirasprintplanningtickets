@@ -49,6 +49,7 @@ function App() {
             <nav className="flex gap-4">
               <button
                 onClick={() => setActiveTab('design')}
+                data-tab="design"
                 className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
                   activeTab === 'design'
                     ? 'border-blue-500 text-blue-600'
@@ -59,6 +60,7 @@ function App() {
               </button>
               <button
                 onClick={() => setActiveTab('print')}
+                data-tab="print"
                 className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
                   activeTab === 'print'
                     ? 'border-blue-500 text-blue-600'

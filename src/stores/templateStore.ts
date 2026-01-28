@@ -1,11 +1,43 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { CardTemplate, SavedEnrichment, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup, CardBackgroundRule } from '../types'
+import { CardTemplate, SavedEnrichment, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup, CardBackgroundRule, SortConfig } from '../types'
+
+// Helper to serialize RegExp patterns for storage
+function serializeSortConfig(config: SortConfig | undefined): any {
+  if (!config) return undefined
+
+  return {
+    ...config,
+    rules: config.rules.map(rule => ({
+      ...rule,
+      linkedIssues: rule.linkedIssues ? {
+        ...rule.linkedIssues,
+        issueKeyPattern: rule.linkedIssues.issueKeyPattern.source
+      } : undefined
+    }))
+  }
+}
+
+// Helper to deserialize RegExp patterns from storage
+function deserializeSortConfig(config: any): SortConfig | undefined {
+  if (!config) return undefined
+
+  return {
+    ...config,
+    rules: config.rules.map((rule: any) => ({
+      ...rule,
+      linkedIssues: rule.linkedIssues ? {
+        ...rule.linkedIssues,
+        issueKeyPattern: new RegExp(rule.linkedIssues.issueKeyPattern, 'g')
+      } : undefined
+    }))
+  }
+}
 
 interface TemplateStore {
   // Templates
   templates: CardTemplate[]
-  saveTemplate: (name: string, mappings: FieldMapping[], layouts: FieldLayout[], styles: FieldStyle[], cardBgRules?: CardBackgroundRule[]) => string
+  saveTemplate: (name: string, mappings: FieldMapping[], layouts: FieldLayout[], styles: FieldStyle[], cardBgRules?: CardBackgroundRule[], sortConfig?: SortConfig) => string
   loadTemplate: (id: string) => CardTemplate | null
   deleteTemplate: (id: string) => void
   renameTemplate: (id: string, name: string) => void
@@ -30,7 +62,7 @@ export const useTemplateStore = create<TemplateStore>()(
     (set, get) => ({
       templates: [],
 
-      saveTemplate: (name, mappings, layouts, styles, cardBgRules = []) => {
+      saveTemplate: (name, mappings, layouts, styles, cardBgRules = [], sortConfig) => {
         const id = generateId()
         const template: CardTemplate = {
           id,
@@ -39,7 +71,8 @@ export const useTemplateStore = create<TemplateStore>()(
           fieldMappings: mappings,
           fieldLayouts: layouts,
           fieldStyles: styles,
-          cardBackgroundRules: cardBgRules
+          cardBackgroundRules: cardBgRules,
+          sortConfig: serializeSortConfig(sortConfig) as any
         }
         set(state => ({
           templates: [...state.templates, template]
@@ -48,7 +81,13 @@ export const useTemplateStore = create<TemplateStore>()(
       },
 
       loadTemplate: (id) => {
-        return get().templates.find(t => t.id === id) || null
+        const template = get().templates.find(t => t.id === id)
+        if (!template) return null
+
+        return {
+          ...template,
+          sortConfig: deserializeSortConfig(template.sortConfig)
+        }
       },
 
       deleteTemplate: (id) => {
@@ -93,6 +132,7 @@ export const useTemplateStore = create<TemplateStore>()(
 
       exportAll: () => {
         const { templates, savedEnrichments } = get()
+        // Templates are already serialized when saved
         return JSON.stringify({ templates, savedEnrichments }, null, 2)
       },
 
@@ -100,8 +140,14 @@ export const useTemplateStore = create<TemplateStore>()(
         try {
           const data = JSON.parse(json)
           if (data.templates && data.savedEnrichments) {
+            // Deserialize templates on import
+            const deserializedTemplates = data.templates.map((t: any) => ({
+              ...t,
+              sortConfig: deserializeSortConfig(t.sortConfig)
+            }))
+
             set({
-              templates: data.templates,
+              templates: deserializedTemplates,
               savedEnrichments: data.savedEnrichments
             })
             return true

@@ -65,6 +65,12 @@ body {
 }
 
 /* Print styles */
+@media screen {
+  .print-show {
+    display: none;
+  }
+}
+
 @page {
   size: A4 portrait;
   margin: 0;
@@ -82,6 +88,10 @@ body {
 
   .no-print {
     display: none !important;
+  }
+
+  .print-show {
+    display: block !important;
   }
 
   .space-y-4 > * + * {

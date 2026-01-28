@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import GridLayout, { Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useDataStore } from '../stores/dataStore'
-import { FieldLayout, ColorRule, TicketRow, CardBackgroundRule } from '../types'
+import { useAIStore } from '../stores/aiStore'
+import { FieldLayout, ColorRule, TicketRow, CardBackgroundRule, SortedCardResult } from '../types'
 import { renderMarkdown } from '../utils/markdownRenderer'
+import { SortPanel } from './SortPanel'
+import { applySorting } from '../utils/cardSorting'
+import { applyAISorting } from '../utils/aiSorting'
 
 const GRID_COLS = 12
 const GRID_ROW_HEIGHT = 25
@@ -25,8 +29,70 @@ export function CardDesigner() {
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
   const columns = useDataStore(state => state.columns)
   const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
+  const sortConfig = useDataStore(state => state.sortConfig)
+  const setSortConfig = useDataStore(state => state.setSortConfig)
+  const aiSortedResults = useDataStore(state => state.aiSortedResults)
+  const setAISortedResults = useDataStore(state => state.setAISortedResults)
+  const aiProvider = useAIStore(state => state.provider)
 
   const [editingRules, setEditingRules] = useState<string | null>(null)
+  const [showSortPanel, setShowSortPanel] = useState(false)
+  const [aiAnalysisState, setAIAnalysisState] = useState<{
+    isRunning: boolean
+    error?: string
+    lastRun?: number
+  }>({ isRunning: false })
+
+  const handleRunAIAnalysis = async () => {
+    console.log('🚀 handleRunAIAnalysis called')
+    console.log('sortConfig.aiSort:', sortConfig.aiSort)
+    console.log('aiProvider:', aiProvider)
+    console.log('rows.length:', rows.length)
+
+    if (!sortConfig.aiSort) {
+      console.error('❌ No AI sort config!')
+      return
+    }
+
+    if (!aiProvider) {
+      console.error('❌ No AI provider configured!')
+      return
+    }
+
+    console.log('✅ Starting AI analysis...')
+    setAIAnalysisState({ isRunning: true })
+
+    try {
+      // First apply regular sorting rules
+      console.log('📊 Applying regular sorting rules...')
+      const sortedResults = applySorting(rows, sortConfig)
+      console.log('📊 Regular sorting complete. Results:', sortedResults.length)
+
+      // Then apply AI sorting on top
+      console.log('🤖 Applying AI sorting...')
+      const aiResults = await applyAISorting(sortedResults, sortConfig.aiSort, aiProvider)
+      console.log('🤖 AI sorting complete. Results:', aiResults.length)
+
+      setAISortedResults(aiResults)
+      setAIAnalysisState({
+        isRunning: false,
+        lastRun: Date.now()
+      })
+      console.log('✅ AI analysis complete!')
+    } catch (error) {
+      console.error('❌ AI analysis failed:', error)
+      setAIAnalysisState({
+        isRunning: false,
+        error: error instanceof Error ? error.message : 'AI analysis failed'
+      })
+    }
+  }
+
+  // Reset AI analysis when data or config changes
+  useEffect(() => {
+    setAISortedResults(null)
+    setAIAnalysisState({ isRunning: false })
+  }, [rows, sortConfig])
 
   const currentRow = useMemo(() => {
     if (rows.length === 0) return null
@@ -263,14 +329,46 @@ export function CardDesigner() {
             Next
           </button>
         </div>
-        <button
-          onClick={autoArrange}
-          className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
-          title="Automatically arrange all fields to fill gaps"
-        >
-          Auto Arrange
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSortPanel(!showSortPanel)}
+            className="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200"
+          >
+            {showSortPanel ? 'Hide' : 'Sort Cards'} {sortConfig.rules.length > 0 && `(${sortConfig.rules.length})`}
+          </button>
+          <button
+            onClick={autoArrange}
+            className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
+            title="Automatically arrange all fields to fill gaps"
+          >
+            Auto Arrange
+          </button>
+        </div>
       </div>
+
+      {/* Sort Panel */}
+      {showSortPanel && (
+        <div className="mb-3 px-2 max-h-96 overflow-y-auto border-b pb-3 flex-shrink-0">
+          <div className="bg-white p-3 rounded border shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold">Card Sorting Configuration</h3>
+              <button
+                onClick={() => setShowSortPanel(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            <SortPanel
+              config={sortConfig}
+              columns={columns}
+              onConfigChange={setSortConfig}
+              onRunAIAnalysis={handleRunAIAnalysis}
+              aiAnalysisState={aiAnalysisState}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Card Canvas - scrollable */}
       <div className="flex-1 overflow-auto">

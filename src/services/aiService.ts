@@ -76,7 +76,7 @@ async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Pr
   console.log('LM Studio messages:', messages)
 
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout for large models
+  const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout for large analysis tasks
 
   const response = await fetch(url, {
     method: 'POST',
@@ -88,7 +88,7 @@ async function sendToLMStudio(provider: AIProvider, messages: ChatMessage[]): Pr
         content: m.content
       })),
       temperature: 0.5,
-      max_tokens: 1024
+      max_tokens: 65536  // 64k tokens for very large AI sorting tasks
     }),
     signal: controller.signal
   })

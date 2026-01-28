@@ -27,17 +27,19 @@ export function TemplateManager() {
   const fieldStyles = useDataStore(state => state.fieldStyles)
   const columns = useDataStore(state => state.columns)
   const cardBackgroundRules = useDataStore(state => state.cardBackgroundRules)
+  const sortConfig = useDataStore(state => state.sortConfig)
   const setFieldMappings = useDataStore(state => state.setFieldMappings)
   const setFieldLayouts = useDataStore(state => state.setFieldLayouts)
   const setFieldStyles = useDataStore(state => state.setFieldStyles)
   const setCardBackgroundRules = useDataStore(state => state.setCardBackgroundRules)
+  const setSortConfig = useDataStore(state => state.setSortConfig)
 
   const enrichmentGroup = useDataStore(state => state.enrichmentGroup)
   const setEnrichmentGroup = useDataStore(state => state.setEnrichmentGroup)
 
   const handleSaveTemplate = () => {
     if (!templateName.trim()) return
-    saveTemplate(templateName.trim(), fieldMappings, fieldLayouts, fieldStyles, cardBackgroundRules)
+    saveTemplate(templateName.trim(), fieldMappings, fieldLayouts, fieldStyles, cardBackgroundRules, sortConfig)
     setTemplateName('')
   }
 
@@ -149,6 +151,11 @@ export function TemplateManager() {
       field: columnMap.get(rule.field) || rule.field
     }))
     setCardBackgroundRules(updatedCardBgRules)
+
+    // Load sort config if present
+    if (template.sortConfig) {
+      setSortConfig(template.sortConfig)
+    }
 
     setShowModal(false)
   }

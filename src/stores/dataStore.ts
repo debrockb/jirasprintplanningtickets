@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { TicketRow, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup, CardBackgroundRule } from '../types'
+import { TicketRow, FieldMapping, FieldLayout, FieldStyle, EnrichmentGroup, CardBackgroundRule, SortConfig, SortedCardResult } from '../types'
 
 interface DataStore {
   // Data
@@ -9,6 +9,10 @@ interface DataStore {
   clearData: () => void
   updateRowField: (rowIndex: number, fieldName: string, value: string) => void
   updateAllRowsField: (fieldName: string, values: Map<number, string>) => void
+
+  // AI-sorted results cache
+  aiSortedResults: SortedCardResult[] | null
+  setAISortedResults: (results: SortedCardResult[] | null) => void
 
   // Field mappings
   fieldMappings: FieldMapping[]
@@ -38,6 +42,10 @@ interface DataStore {
   // Current preview index
   previewIndex: number
   setPreviewIndex: (index: number) => void
+
+  // Card sorting
+  sortConfig: SortConfig
+  setSortConfig: (config: SortConfig) => void
 
   // Get row with enrichment data merged in
   getEnrichedRow: (row: TicketRow) => TicketRow
@@ -92,7 +100,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         }
         return newValue !== undefined ? { ...row, [fieldName]: newValue } : row
       })
-      console.log('Store: New rows created, first row Description:', newRows[0]?.[fieldName]?.substring(0, 50))
+      console.log('Store: New rows created, first row Description:', String(newRows[0]?.[fieldName] || '').substring(0, 50))
       return { rows: newRows }
     })
   },
@@ -170,6 +178,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
   setPreviewIndex: (index) => set(state => ({
     previewIndex: Math.max(0, Math.min(index, state.rows.length - 1))
   })),
+
+  sortConfig: { rules: [] },
+  setSortConfig: (config) => set({ sortConfig: config }),
+
+  aiSortedResults: null,
+  setAISortedResults: (results) => set({ aiSortedResults: results }),
 
   getEnrichedRow: (row) => {
     const { enrichmentGroup } = get()
